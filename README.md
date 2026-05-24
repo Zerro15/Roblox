@@ -357,6 +357,32 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 - `Enemies` с тестовой волной
 - `Towers` с тестовой башней рядом с дорогой
 
+## Enemy Movement Along PathNodes
+
+Добавлено простое движение врагов по точкам пути карты.
+
+### Как это работает
+
+- враги появляются рядом с `Node_1`
+- `PathService` возвращает точки `Node_1 ... Node_7` в правильном порядке
+- `EnemyService` двигает каждого врага по этим точкам через `TweenService`
+- после достижения выхода враг удаляется из `Workspace/GameRuntime/Enemies`
+
+### Где смотреть в Studio
+
+- `Workspace/GameRuntime/Enemies`
+- `Workspace/GameRuntime/Map/PathNodes`
+
+### Какие логи ожидать в Output
+
+- `[PathService]`
+- `[WaveService]`
+- `[EnemyService]`
+
+Следующий этап:
+
+- `Tower targeting and damage`
+
 ## Следующий этап развития
 
 1. `enemy movement along PathNodes`

@@ -34,5 +34,5 @@ if testTower then
 	print(string.format("[Main] Placed test tower: %s", testTower.Name))
 end
 
-local spawnedEnemies = WaveService:SpawnTestWave()
-print(string.format("[Main] Spawned test wave with %d enemies", #spawnedEnemies))
+WaveService:SpawnTestWave()
+print("[Main] Triggered test wave")
