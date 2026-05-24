@@ -417,6 +417,31 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 - `reward economy`
 - `wave progression`
 
+## Reward Economy
+
+Добавлен минимальный экономический loop за убийства врагов.
+
+### Как это работает
+
+- `reward` хранится в [src/shared/configs/EnemyConfig.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/shared/configs/EnemyConfig.lua)
+- при спавне [src/server/services/EnemyService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/EnemyService.lua) копирует `reward` в attribute `Reward`
+- `DamageEnemy()` теперь возвращает результат с `damaged`, `defeated`, `reward`, `enemyName`, `newHealth`
+- если башня действительно добивает врага, [src/server/services/TowerService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/TowerService.lua) передает reward в [src/server/services/EconomyService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/EconomyService.lua)
+- `EconomyService` увеличивает `currentMoney` только за реальные убийства башней
+
+### Где смотреть логи
+
+- `[EnemyService]`
+- `[TowerService]`
+- `[EconomyService]`
+
+### Следующий этап
+
+- `wave progression`
+- `tower placement spending`
+- `projectile visuals`
+- `UI money display`
+
 ## Следующий этап развития
 
 1. `enemy movement along PathNodes`

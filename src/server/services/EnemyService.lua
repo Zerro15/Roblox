@@ -53,7 +53,13 @@ end
 
 function EnemyService:DamageEnemy(enemy, amount, source)
 	if not self:IsEnemyAlive(enemy) then
-		return false
+		return {
+			damaged = false,
+			defeated = false,
+			reward = 0,
+			enemyName = enemy and enemy.Name or nil,
+			newHealth = 0,
+		}
 	end
 
 	local currentHealth = enemy:GetAttribute("Health") or 0
@@ -61,13 +67,27 @@ function EnemyService:DamageEnemy(enemy, amount, source)
 	enemy:SetAttribute("Health", newHealth)
 
 	if newHealth <= 0 then
-		print("[EnemyService] Enemy defeated: " .. enemy.Name)
+		local reward = enemy:GetAttribute("Reward") or 0
+		local enemyName = enemy.Name
+		print("[EnemyService] Enemy defeated: " .. enemyName .. ", reward: " .. tostring(reward))
 		self:CleanupEnemy(enemy)
-		return true
+		return {
+			damaged = true,
+			defeated = true,
+			reward = reward,
+			enemyName = enemyName,
+			newHealth = 0,
+		}
 	end
 
 	print(string.format("[EnemyService] Damaged enemy %s for %s, health: %s", enemy.Name, tostring(amount), tostring(newHealth)))
-	return true
+	return {
+		damaged = true,
+		defeated = false,
+		reward = 0,
+		enemyName = enemy.Name,
+		newHealth = newHealth,
+	}
 end
 
 function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
