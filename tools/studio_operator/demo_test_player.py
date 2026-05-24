@@ -107,6 +107,8 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- was F5 pressed: `{report.get('f5_pressed', False)}`",
 		f"- recording path: `{report.get('recording_path', '')}`",
 		f"- result status: `{report.get('result_status', 'unknown')}`",
+		f"- play status: `{report.get('play_status', 'unknown')}`",
+		f"- video usefulness score: `{report.get('video_score', 0)}/5`",
 		"",
 		"## Required Files",
 	]
@@ -124,14 +126,23 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 	if report.get("recording_error"):
 		lines.append(f"- error: `{report['recording_error']}`")
 	if report.get("recording_path"):
+		recording_path = Path(report['recording_path'])
+		file_size = recording_path.stat().st_size / (1024 * 1024) if recording_path.exists() else 0
 		lines.append(f"- file: `{report['recording_path']}`")
+		lines.append(f"- file size: `{file_size:.2f} MB`")
 	if report.get("fallback_frames"):
 		for frame in report["fallback_frames"]:
 			lines.append(f"- fallback frame: `{frame}`")
 
 	lines.extend(["", "## Roblox Logs"])
 	lines.append(f"- marker report: `{report.get('marker_report_path', '')}`")
-	lines.append(f"- matched markers: `{', '.join(report.get('matched_markers', []))}`")
+	matched_markers = report.get("matched_markers", [])
+	lines.append(f"- matched markers: `{len(matched_markers)}` found")
+	if matched_markers:
+		for marker in matched_markers[:15]:
+			lines.append(f"  - `{marker}`")
+		if len(matched_markers) > 15:
+			lines.append(f"  - ... and {len(matched_markers) - 15} more")
 
 	lines.extend(["", "## Windows"])
 	for window in report.get("windows", []):
@@ -147,6 +158,18 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 
 	lines.extend(["", "## Notes"])
 	lines.append(f"- {report.get('note', 'No extra notes.')}")
+
+	lines.extend(["", "## Video Usefulness Score"])
+	score = report.get("video_score", 0)
+	score_descriptions = {
+		0: "No video recorded",
+		1: "Video recorded but Studio/game not visible",
+		2: "Studio visible but Play not started",
+		3: "Play started but gameplay unclear",
+		4: "Map/enemies/towers visible",
+		5: "Full gameplay loop visible",
+	}
+	lines.append(f"- Score: `{score}/5` - {score_descriptions.get(score, 'Unknown')}")
 
 	report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 	add_report(state, str(report_path), "demo_test_report")
@@ -176,6 +199,37 @@ def record_only_mode(report: dict[str, Any], state: dict[str, Any], duration: in
 	report["result_status"] = "DEMO_RECORDED" if recording.get("success") else "DEMO_RECORDING_FAILED"
 	report["note"] = "Record-only mode does not build or press Play."
 	update_status(state, report["result_status"])
+
+
+def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], duration: int) -> None:
+	if not build_place(report, state):
+		report["result_status"] = "DEMO_BUILD_FAILED"
+		report["note"] = report.get("build_error", "Build failed.")
+		return
+
+	open_built_place(report, state)
+	report["windows"] = find_windows()
+	capture_and_record(state, report, "before_manual_play")
+
+	print("\n" + "="*60)
+	print("Recording is starting now.")
+	print("Click Roblox Studio and press Play/F5 manually.")
+	print("Do not switch windows during recording.")
+	print("="*60 + "\n")
+
+	recording = record_screen(duration_seconds=duration)
+	report["recording_path"] = recording.get("recording_path")
+	report["recording_error"] = recording.get("error")
+	report["fallback_frames"] = recording.get("fallback_frames", [])
+
+	capture_and_record(state, report, "after_recording")
+
+	if recording.get("success"):
+		report["result_status"] = "DEMO_RECORDED"
+		update_status(state, "DEMO_RECORDED")
+	else:
+		report["result_status"] = "DEMO_RECORDING_FAILED"
+		update_status(state, "DEMO_RECORDING_FAILED", recording.get("error"))
 
 
 def run_demo_mode(report: dict[str, Any], state: dict[str, Any], duration: int, focus_mode: str) -> None:
@@ -218,9 +272,11 @@ def run_demo_mode(report: dict[str, Any], state: dict[str, Any], duration: int, 
 		update_status(state, "DEMO_RECORDING_FAILED", recording.get("error"))
 
 
+
+
 def main() -> int:
 	parser = argparse.ArgumentParser(description="Demo Test Player / Video Recorder for Roblox Studio Operator")
-	parser.add_argument("--mode", choices=("observe", "record-only", "run-demo"), required=True)
+	parser.add_argument("--mode", choices=("observe", "record-only", "run-demo", "manual-play-record"), required=True)
 	parser.add_argument("--duration", type=int, default=60)
 	parser.add_argument("--focus-mode", choices=("assisted",), default="assisted")
 	args = parser.parse_args()
@@ -230,36 +286,62 @@ def main() -> int:
 	report: dict[str, Any] = {
 		"started_at": datetime.now().isoformat(),
 		"mode": args.mode,
-		"duration": max(1, min(args.duration, 60)),
+		"duration": max(1, min(args.duration, 90)),
 		"screenshots": [],
 		"f5_pressed": False,
 		"windows": [],
 		"relevant_processes": [],
 	}
 
-	if args.mode == "observe":
-		observe_mode(report, state)
-	elif args.mode == "record-only":
-		record_only_mode(report, state, report["duration"])
-	else:
-		run_demo_mode(report, state, report["duration"], args.focus_mode)
+	try:
+		if args.mode == "observe":
+			observe_mode(report, state)
+		elif args.mode == "record-only":
+			record_only_mode(report, state, report["duration"])
+		elif args.mode == "manual-play-record":
+			manual_play_record_mode(report, state, report["duration"])
+		else:
+			run_demo_mode(report, state, report["duration"], args.focus_mode)
+	except Exception as exc:
+		report["result_status"] = "DEMO_ERROR"
+		report["note"] = f"Error during demo execution: {str(exc)}"
+		update_status(state, "DEMO_ERROR", str(exc))
+		print(f"Error: {exc}", file=sys.stderr)
 
 	collect_markers(report, state)
+
+	important_markers = [
+		"[Server boot]",
+		"[RuntimeService]",
+		"[MapService]",
+		"[PathService]",
+		"[WaveService]",
+		"[EnemyService]",
+		"[TowerService]",
+		"[EconomyService]",
+	]
+
+	client_markers = [
+		"[Client boot]",
+		"[Client] Demo camera activated",
+	]
+
+	all_gameplay_markers = important_markers + client_markers
+	matched = report.get("matched_markers", [])
+
 	if report.get("result_status") == "DEMO_RECORDED":
-		important_markers = [
-			"[Server boot]",
-			"[RuntimeService]",
-			"[MapService]",
-			"[PathService]",
-			"[WaveService]",
-			"[EnemyService]",
-			"[TowerService]",
-			"[EconomyService]",
-		]
-		if not any(marker in report.get("matched_markers", []) for marker in important_markers):
-			report["result_status"] = "DEMO_PLAY_NOT_CONFIRMED"
-			report["note"] = "Video recording completed, but gameplay markers were not confirmed in Roblox logs."
-			update_status(state, "DEMO_PLAY_NOT_CONFIRMED")
+		if any(marker in matched for marker in important_markers):
+			report["play_status"] = "DEMO_RECORDED_PLAY_CONFIRMED"
+			report["video_score"] = 4 if any(marker in matched for marker in client_markers) else 3
+		else:
+			report["play_status"] = "DEMO_RECORDED_PLAY_NOT_CONFIRMED"
+			report["video_score"] = 2
+	elif report.get("result_status") == "DEMO_RECORDING_FAILED":
+		report["play_status"] = "DEMO_RECORDING_FAILED"
+		report["video_score"] = 0
+	else:
+		report["play_status"] = report.get("result_status", "UNKNOWN")
+		report["video_score"] = 0
 
 	report["windows"] = find_windows()
 	report["relevant_processes"] = list_relevant_processes()
