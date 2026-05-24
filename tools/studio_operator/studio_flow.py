@@ -197,21 +197,44 @@ def safe_focus(report: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     return focus_result
 
 
-def perform_play_sequence(state: dict[str, Any], report: dict[str, Any], click_mode: str) -> None:
-    capture_and_record(state, report, "before_focus")
-    focus_result = safe_focus(report, state)
-    report["active_window_before_focus"] = focus_result["before_title"]
-    report["active_window_after_focus"] = focus_result["after_title"]
-    report["focus_chosen_title"] = focus_result["chosen_title"]
+def run_assisted_focus(report: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    capture_and_record(state, report, "before_assisted_focus")
+    print("Click Roblox Studio window now. Operator will check focus in 5 seconds.")
+    time.sleep(5)
+    active_title = get_active_window_title()
+    success = is_active_studio_window()
+    state["last_active_window"] = active_title
+    return {
+        "success": success,
+        "before_title": active_title,
+        "after_title": active_title,
+        "chosen_title": active_title if success else None,
+        "reason": None if success else "Foreground window could not be confirmed after assisted focus wait.",
+    }
 
-    capture_and_record(state, report, "after_focus")
+
+def perform_play_sequence(state: dict[str, Any], report: dict[str, Any], click_mode: str, focus_mode: str) -> None:
+    report["focus_mode"] = focus_mode
+
+    if focus_mode == "assisted":
+        focus_result = run_assisted_focus(report, state)
+        report["active_window_before_focus"] = focus_result["before_title"]
+        report["active_window_after_focus"] = focus_result["after_title"]
+        report["focus_chosen_title"] = focus_result["chosen_title"]
+    else:
+        capture_and_record(state, report, "before_focus")
+        focus_result = safe_focus(report, state)
+        report["active_window_before_focus"] = focus_result["before_title"]
+        report["active_window_after_focus"] = focus_result["after_title"]
+        report["focus_chosen_title"] = focus_result["chosen_title"]
+        capture_and_record(state, report, "after_focus")
 
     if click_mode == "off":
         report["play_status"] = "skipped"
         update_status(state, "PLAY_SKIPPED")
         return
 
-    if not focus_result["success"]:
+    if not focus_result["success"] and focus_mode == "auto":
         ok, output = run_command(
             [
                 "powershell",
@@ -232,10 +255,15 @@ def perform_play_sequence(state: dict[str, Any], report: dict[str, Any], click_m
 
     report["active_window_before_f5"] = get_active_window_title()
     if not is_active_studio_window():
-        report["play_status"] = "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED"
+        if focus_mode == "assisted":
+            report["play_status"] = "PLAY_BLOCKED_ASSISTED_FOCUS_NOT_CONFIRMED"
+            update_status(state, "PLAY_BLOCKED_ASSISTED_FOCUS_NOT_CONFIRMED")
+            report["manual_action_needed"] = "Play blocked because assisted focus was not confirmed."
+        else:
+            report["play_status"] = "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED"
+            update_status(state, "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED")
+            report["manual_action_needed"] = "Play blocked because Studio focus was not confirmed."
         capture_and_record(state, report, "play_blocked")
-        update_status(state, "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED")
-        report["manual_action_needed"] = "Play blocked because Studio focus was not confirmed."
         return
 
     pyautogui.press("f5")
@@ -253,6 +281,7 @@ def build_flow_report(state: dict[str, Any], report: dict[str, Any]) -> Path:
         f"- Launch time: {report['launch_time']}",
         f"- Flow: `{report['flow']}`",
         f"- Click mode: `{report['click_mode']}`",
+        f"- Focus mode: `{report.get('focus_mode', 'auto')}`",
         f"- Bridge status: `{report.get('bridge_status', 'unknown')}`",
         f"- Rojo status: `{report.get('rojo_status', 'unknown')}`",
         f"- Roblox Studio path: `{report.get('roblox_studio_path', 'not_found')}`",
@@ -315,13 +344,14 @@ def build_flow_report(state: dict[str, Any], report: dict[str, Any]) -> Path:
     return report_path
 
 
-def run_flow(flow: str, click_mode: str) -> dict[str, Any]:
+def run_flow(flow: str, click_mode: str, focus_mode: str = "auto") -> dict[str, Any]:
     ensure_logs_dir()
     state = load_state()
     report: dict[str, Any] = {
         "launch_time": datetime.now().isoformat(),
         "flow": flow,
         "click_mode": click_mode,
+        "focus_mode": focus_mode,
         "screenshots": [],
         "manual_action_needed": (
             "If Studio shows login, 2FA, captcha, publishing prompts, Allow HTTP Requests, or Rojo live-connect prompts, handle that manually."
@@ -349,12 +379,13 @@ def run_flow(flow: str, click_mode: str) -> dict[str, Any]:
             build_place(state, report)
         if flow in ("build-open", "build-open-play", "full-safe") and report.get("build_status") == "ok":
             open_built_place_once(state, report)
-            focus_result = safe_focus(report, state)
-            report["focus_before_title"] = focus_result["before_title"]
-            report["focus_after_title"] = focus_result["after_title"]
+            if focus_mode == "auto":
+                focus_result = safe_focus(report, state)
+                report["focus_before_title"] = focus_result["before_title"]
+                report["focus_after_title"] = focus_result["after_title"]
             capture_and_record(state, report, "studio_active")
         if flow in ("build-open-play", "full-safe") and report.get("build_status") == "ok":
-            perform_play_sequence(state, report, click_mode)
+            perform_play_sequence(state, report, click_mode, focus_mode)
 
     marker_report, matched_markers = collect_latest_markers(LOGS_DIR, LOGS_DIR / "roblox_latest_markers.md")
     add_report(state, str(marker_report), "roblox_latest_markers")
@@ -377,7 +408,7 @@ def run_flow(flow: str, click_mode: str) -> dict[str, Any]:
     report["foreign_processes"] = detect_foreign_processes(state)
     state["last_active_window"] = get_active_window_title()
     state["last_build_path"] = str(built_place_path()) if built_place_path().exists() else state.get("last_build_path")
-    if flow == "full-safe" and report.get("play_status") == "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED":
+    if flow == "full-safe" and report.get("play_status") in ("PLAY_BLOCKED_FOCUS_NOT_CONFIRMED", "PLAY_BLOCKED_ASSISTED_FOCUS_NOT_CONFIRMED"):
         update_status(state, "PLAY_BLOCKED_FOCUS_NOT_CONFIRMED")
     elif flow == "full-safe" and report.get("f5_pressed"):
         update_status(state, report["play_confirmation_status"])
@@ -396,13 +427,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Studio Operator v4 flow runner")
     parser.add_argument("--flow", choices=("status", "cleanup", "build", "observe", "build-open", "build-open-play", "full-safe"), required=True)
     parser.add_argument("--click-mode", choices=("off", "cautious"), default="off")
+    parser.add_argument("--focus-mode", choices=("auto", "assisted"), default="auto")
     args = parser.parse_args()
 
     normalized_flow = "status" if args.flow == "observe" else args.flow
     if args.flow == "observe":
-        result = run_flow("status", args.click_mode)
+        result = run_flow("status", args.click_mode, args.focus_mode)
     else:
-        result = run_flow(normalized_flow, args.click_mode)
+        result = run_flow(normalized_flow, args.click_mode, args.focus_mode)
 
     print(f"Flow report written to: {result['report_path']}")
     print(f"Marker report written to: {result['marker_report_path']}")

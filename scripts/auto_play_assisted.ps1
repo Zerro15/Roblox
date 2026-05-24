@@ -14,7 +14,6 @@ if (-not (Test-Path $venvPath)) {
 
 $pythonExe = Join-Path $venvPath 'Scripts\python.exe'
 
-Write-Output "Operator will only press F5 if Roblox Studio focus is confirmed."
-& $pythonExe -m pip install -r $requirementsPath
 Write-Output "Click Roblox Studio when prompted. Operator will only press F5 if Studio focus is confirmed."
+& $pythonExe -m pip install -r $requirementsPath
 & $pythonExe $flowPath --flow build-open-play --click-mode cautious --focus-mode assisted

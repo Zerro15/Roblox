@@ -58,9 +58,36 @@ python .\tools\studio_operator\studio_flow.py --flow status
 python .\tools\studio_operator\studio_flow.py --flow cleanup
 python .\tools\studio_operator\studio_flow.py --flow build
 python .\tools\studio_operator\studio_flow.py --flow build-open
-python .\tools\studio_operator\studio_flow.py --flow build-open-play --click-mode cautious
-python .\tools\studio_operator\studio_flow.py --flow full-safe --click-mode cautious
+python .\tools\studio_operator\studio_flow.py --flow build-open-play --click-mode cautious --focus-mode auto
+python .\tools\studio_operator\studio_flow.py --flow build-open-play --click-mode cautious --focus-mode assisted
+python .\tools\studio_operator\studio_flow.py --flow full-safe --click-mode cautious --focus-mode auto
 ```
+
+## Human-focus Assisted Mode
+
+Этот режим нужен для сценария, когда Windows не удерживает foreground на Roblox Studio и автоматическая фокусировка перед `F5` оказывается недостаточно надежной.
+
+Что делает пользователь:
+
+- запускает assisted flow
+- ждет подсказку в консоли
+- один раз кликает по окну `Roblox Studio`
+
+Что делает оператор после клика:
+
+- делает скриншот перед assisted-проверкой
+- пишет в консоль, что проверить фокус нужно через 5 секунд
+- ждет 5 секунд
+- проверяет `active window title`
+- нажимает `F5` только если активное окно действительно похоже на `Roblox Studio` или `game.rbxlx`
+
+Почему это безопаснее координатных кликов:
+
+- оператор не кликает по случайным координатам
+- оператор не пытается угадывать расположение кнопок
+- `F5` отправляется только после явного участия человека и повторной проверки foreground window
+
+Если Windows все равно возвращает фокус в браузер или другое приложение, `F5` блокируется и это считается безопасным результатом, а не ошибкой.
 
 ## Git Workflow
 
