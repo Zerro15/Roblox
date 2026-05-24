@@ -273,16 +273,99 @@ cd C:\Users\Bogdan\Documents\Codex\2026-05-21\new-chat
 7. В `Towers` должна появиться одна тестовая башня
 8. В Output должны появиться логи сервисов и boot-сообщения
 
+## Backlund Fog District Map Builder
+
+Добавлен первый атмосферный map builder для tower defense прототипа в стилистике мрачного Баклунда.
+
+### Что создает MapService
+
+- [src/server/services/MapService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/MapService.lua)
+  строит `Backlund Fog District` внутри `Workspace/GameRuntime/Map`
+- создает папки:
+  - `Ground`
+  - `Streets`
+  - `Buildings`
+  - `Lamps`
+  - `Decorations`
+  - `Zones`
+- наполняет карту:
+  - большой темной основой
+  - дорожными сегментами
+  - зданиями по краям
+  - газовыми фонарями
+  - `SpawnZone`
+  - `ExitZone`
+  - декоративными объектами вроде ящиков, fog markers, ritual stones и sewer covers
+
+### Что создает PathService
+
+- [src/server/services/PathService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/PathService.lua)
+  строит `Workspace/GameRuntime/Map/PathNodes`
+- создает минимум 7 точек:
+  - `Node_1`
+  - `Node_2`
+  - `Node_3`
+  - `Node_4`
+  - `Node_5`
+  - `Node_6`
+  - `Node_7`
+- возвращает упорядоченный массив `Vector3` для следующих этапов движения врагов
+
+### Где это появится в Workspace
+
+После запуска серверной части ты увидишь:
+
+- `Workspace/GameRuntime/Map/Ground`
+- `Workspace/GameRuntime/Map/Streets`
+- `Workspace/GameRuntime/Map/Buildings`
+- `Workspace/GameRuntime/Map/Lamps`
+- `Workspace/GameRuntime/Map/Decorations`
+- `Workspace/GameRuntime/Map/Zones`
+- `Workspace/GameRuntime/Map/PathNodes`
+
+### Как проверить через build_place.ps1
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_place.ps1
+```
+
+Если сборка прошла успешно, появится:
+
+- `build/game.rbxlx`
+
+### Как проверить через auto_play_assisted.ps1
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
+```
+
+Если Windows снова не отдаст foreground окну Studio, `F5` может быть заблокирован, и это допустимо. Главное здесь:
+
+- Rojo build проходит
+- карта и path builder попадают в place
+- итоговый отчет оператора понятен
+
+### Что должно быть в Explorer после Play
+
+- `Workspace/GameRuntime/Map/Ground/DistrictGround`
+- несколько `StreetSegment_*`
+- несколько `Building_*`
+- несколько `LampPost_*` и `LampGlow_*`
+- `Zones/SpawnZone`
+- `Zones/ExitZone`
+- `PathNodes/Node_1` ... `PathNodes/Node_7`
+- `Enemies` с тестовой волной
+- `Towers` с тестовой башней рядом с дорогой
+
 ## Следующий этап развития
 
-1. `map path builder`
-2. `enemy movement по точкам`
-3. `tower targeting`
-4. `damage system`
-5. `wave progression`
-6. `gacha units`
-7. `UI`
-8. `save system`
+1. `enemy movement along PathNodes`
+2. `tower targeting`
+3. `damage system`
+4. `wave progression`
+5. `gacha units`
+6. `UI`
+7. `save system`
 
 ## Практичный режим работы
 
