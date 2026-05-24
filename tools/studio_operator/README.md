@@ -89,6 +89,54 @@ python .\tools\studio_operator\studio_flow.py --flow full-safe --click-mode caut
 
 Если Windows все равно возвращает фокус в браузер или другое приложение, `F5` блокируется и это считается безопасным результатом, а не ошибкой.
 
+## Demo Test Player / Video Recorder
+
+Этот слой добавляет безопасный demo-runner поверх текущего Studio Operator.
+
+Что он делает:
+
+- собирает проект в `build/game.rbxlx`
+- открывает `build/game.rbxlx` в Roblox Studio
+- просит пользователя кликнуть окно Studio, если нужен assisted focus
+- нажимает `F5` только если фокус Roblox Studio подтвержден
+- записывает короткое видео экрана
+- сохраняет скриншоты до и после
+- собирает Roblox logs и пишет demo report
+
+Как запустить:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_demo_test.ps1
+```
+
+Где лежит видео:
+
+- `logs/recordings/`
+
+Где лежит отчёт:
+
+- [logs/demo_test_report.md](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/logs/demo_test_report.md)
+
+Почему нужен assisted focus:
+
+- Windows не всегда разрешает приложению надежно вернуть foreground на Roblox Studio
+- demo-runner не делает координатных кликов
+- `F5` отправляется только после подтверждения активного окна
+
+Что делать, если статус `DEMO_BLOCKED_FOCUS_NOT_CONFIRMED`:
+
+- вручную кликнуть по окну `game.rbxlx - Roblox Studio`
+- снова запустить demo test
+
+Что смотреть в видео:
+
+- карту `Backlund Fog District`
+- врагов на `PathNodes`
+- башни
+- projectiles / beams
+- wave progression
+- reward logs
+
 ## Git Workflow
 
 Оператор умеет:

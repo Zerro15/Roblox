@@ -2,3 +2,6 @@ pyautogui
 pygetwindow
 pillow
 psutil
+mss
+imageio
+imageio-ffmpeg
