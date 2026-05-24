@@ -1,11 +1,66 @@
-# Codex Roblox Bridge
+# Roblox Tower Defense Prototype
 
-Проект теперь поддерживает две параллельные схемы работы:
+Проект поддерживает две параллельные схемы работы:
 
 - `MVP bridge` для live-команд в запущенную Roblox Studio
 - `Rojo + bridge` для нормальной разработки игры через файлы
 
 Существующий MVP сохранен и не удален. Новый слой `src/` добавлен поверх него.
+
+## Team Workflow & Orchestration
+
+Для удобной работы через Claude и Codex CLI:
+
+- **[CLAUDE.md](CLAUDE.md)** - Инструкции для Claude
+- **[AGENTS.md](AGENTS.md)** - Роли агентов для Codex CLI
+- **[docs/team/](docs/team/)** - Документация команды
+  - `ROLES.md` - Роли команды
+  - `ROADMAP.md` - План развития на 6 месяцев
+  - `CURRENT_STATE.md` - Текущее состояние игры
+  - `NEXT_ACTIONS.md` - Следующие 5 задач
+  - `DEVELOPMENT_LOOP.md` - Цикл разработки
+  - `TEST_PLAN.md` - План тестирования
+  - `MODEL_ROUTING.md` - Выбор моделей AI для задач
+- **[prompts/](prompts/)** - Библиотека промтов для AI
+
+### Model Routing
+
+Выбор подходящей модели AI для разных задач:
+
+```powershell
+# Получить рекомендацию для задачи
+.\scripts\model_recommend.ps1 -Task "add tower placement spending"
+
+# Запустить Claude с нужной моделью
+.\scripts\claude_quick.ps1    # haiku - для документации
+.\scripts\claude_code.ps1     # sonnet - для кода
+.\scripts\claude_deep.ps1     # opusplan - для сложных задач
+```
+
+Уровни:
+- **Quick (haiku):** Документация, статус, простые скрипты
+- **Code (sonnet):** Реализация фич, исправление багов
+- **Deep (opus/opusplan):** Архитектура, безопасность, рискованные операции
+- **Verify (haiku/sonnet):** Тестирование, анализ логов
+
+### Быстрый старт
+
+```powershell
+# Проверить статус
+.\scripts\team_status.ps1
+
+# Посмотреть следующие задачи
+.\scripts\team_plan_next.ps1
+
+# Запустить полный цикл (статус → план → сборка → демо)
+.\scripts\team_cycle.ps1
+
+# Список доступных промтов
+.\scripts\prompt_list.ps1
+
+# Показать конкретный промт
+.\scripts\prompt_show.ps1 -Name design_feature
+```
 
 ## Текущая структура
 
