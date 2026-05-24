@@ -24,7 +24,7 @@ from process_manager import is_process_alive, list_relevant_processes, start_pro
 from roblox_logs import collect_latest_markers
 from screen_recorder import record_screen
 from screenshot import take_screenshot
-from window_focus import get_active_window_title, is_active_studio_window
+from window_focus import get_active_window_title, is_active_studio_window, choose_best_studio_window, focus_window
 
 
 def _log_file(name: str, kind: str) -> Path:
@@ -91,6 +91,74 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 	return True
 
 
+def ensure_studio_window_visible(report: dict[str, Any], state: dict[str, Any]) -> bool:
+	best = choose_best_studio_window()
+
+	studio_window_before = None
+	if best:
+		studio_window_before = {
+			"title": best["title"],
+			"x": best["left"],
+			"y": best["top"],
+			"width": best["width"],
+			"height": best["height"],
+			"isMinimized": best["isMinimized"],
+		}
+		report["studio_window_before"] = studio_window_before
+
+	is_offscreen = False
+	if best:
+		if best["left"] <= -10000 or best["top"] <= -10000:
+			is_offscreen = True
+		elif best["width"] < 400 or best["height"] < 300:
+			is_offscreen = True
+		elif best["isMinimized"]:
+			is_offscreen = True
+
+	if is_offscreen and best:
+		print("\nStudio window appears minimized or offscreen. Attempting to restore...")
+		try:
+			focus_window(best["window"])
+			time.sleep(2)
+		except Exception as exc:
+			print(f"Could not restore window: {exc}")
+
+	best_after = choose_best_studio_window()
+	studio_window_after = None
+	if best_after:
+		studio_window_after = {
+			"title": best_after["title"],
+			"x": best_after["left"],
+			"y": best_after["top"],
+			"width": best_after["width"],
+			"height": best_after["height"],
+			"isMinimized": best_after["isMinimized"],
+		}
+		report["studio_window_after"] = studio_window_after
+
+	is_visible = False
+	preflight_status = "STUDIO_WINDOW_NOT_FOUND"
+
+	if best_after:
+		if best_after["left"] <= -10000 or best_after["top"] <= -10000:
+			preflight_status = "STUDIO_WINDOW_OFFSCREEN"
+		elif best_after["width"] < 400 or best_after["height"] < 300:
+			preflight_status = "STUDIO_WINDOW_OFFSCREEN"
+		elif best_after["isMinimized"]:
+			preflight_status = "STUDIO_WINDOW_OFFSCREEN"
+		else:
+			is_visible = True
+			if is_offscreen:
+				preflight_status = "STUDIO_WINDOW_RESTORED"
+			else:
+				preflight_status = "STUDIO_WINDOW_VISIBLE"
+
+	report["studio_window_visible"] = is_visible
+	report["studio_window_preflight_status"] = preflight_status
+
+	return is_visible
+
+
 def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 	report_path = LOGS_DIR / "demo_test_report.md"
 	lines = [
@@ -149,6 +217,29 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		lines.append(f"- `{window['title']}` at ({window['left']}, {window['top']}) size {window['width']}x{window['height']}")
 	if not report.get("windows"):
 		lines.append("- No Roblox-related windows found.")
+
+	lines.extend(["", "## Studio Window Preflight"])
+	studio_before = report.get("studio_window_before")
+	studio_after = report.get("studio_window_after")
+	studio_visible = report.get("studio_window_visible", False)
+	studio_status = report.get("studio_window_preflight_status", "UNKNOWN")
+
+	if studio_before:
+		lines.append(f"- before: `{studio_before['title']}` at ({studio_before['x']}, {studio_before['y']}) size {studio_before['width']}x{studio_before['height']}")
+		if studio_before['x'] <= -10000 or studio_before['y'] <= -10000:
+			lines.append("  - ⚠️ Studio appears minimized or offscreen")
+	else:
+		lines.append("- before: no window found")
+
+	if studio_after:
+		lines.append(f"- after: `{studio_after['title']}` at ({studio_after['x']}, {studio_after['y']}) size {studio_after['width']}x{studio_after['height']}")
+		if studio_after['x'] <= -10000 or studio_after['y'] <= -10000:
+			lines.append("  - ⚠️ Studio appears minimized or offscreen")
+	else:
+		lines.append("- after: no window found")
+
+	lines.append(f"- visible: `{studio_visible}`")
+	lines.append(f"- status: `{studio_status}`")
 
 	lines.extend(["", "## Processes"])
 	for proc in report.get("relevant_processes", []):
@@ -209,13 +300,24 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 
 	open_built_place(report, state)
 	report["windows"] = find_windows()
+
+	if not ensure_studio_window_visible(report, state):
+		capture_and_record(state, report, "studio_not_visible")
+		report["result_status"] = "DEMO_STUDIO_WINDOW_NOT_VISIBLE"
+		report["note"] = "Roblox Studio window is minimized/offscreen. Bring it to screen and rerun."
+		update_status(state, "DEMO_STUDIO_WINDOW_NOT_VISIBLE")
+		return
+
 	capture_and_record(state, report, "before_manual_play")
 
 	print("\n" + "="*60)
-	print("Recording is starting now.")
-	print("Click Roblox Studio and press Play/F5 manually.")
-	print("Do not switch windows during recording.")
+	print("Recording will start in 5 seconds.")
+	print("Make sure Roblox Studio is visible.")
+	print("When recording starts, click Studio and press Play/F5.")
+	print("Do not switch windows.")
 	print("="*60 + "\n")
+
+	time.sleep(5)
 
 	recording = record_screen(duration_seconds=duration)
 	report["recording_path"] = recording.get("recording_path")
