@@ -383,6 +383,40 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 
 - `Tower targeting and damage`
 
+## Tower Targeting and Damage
+
+Добавлен минимальный боевой loop для тестовой башни.
+
+### Как это работает
+
+- башни ищут ближайшего живого врага в радиусе
+- выбор цели идет по минимальной дистанции внутри `Range`
+- враги получают урон через `Health` attribute
+- при `Health <= 0` враг удаляется
+
+### Debug attack beam
+
+- при атаке кратко появляется neon beam
+- beam создается в `Workspace/GameRuntime/Projectiles`
+- beam автоматически удаляется через `Debris`
+
+### Где смотреть
+
+- `Workspace/GameRuntime/Towers`
+- `Workspace/GameRuntime/Enemies`
+- `Workspace/GameRuntime/Projectiles`
+
+### Какие логи должны быть в Output
+
+- `[TowerService]`
+- `[EnemyService]`
+
+### Следующий этап
+
+- `projectile visuals`
+- `reward economy`
+- `wave progression`
+
 ## Следующий этап развития
 
 1. `enemy movement along PathNodes`

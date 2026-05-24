@@ -34,5 +34,6 @@ if testTower then
 	print(string.format("[Main] Placed test tower: %s", testTower.Name))
 end
 
+TowerService:StartAllTowersCombat()
 WaveService:SpawnTestWave()
 print("[Main] Triggered test wave")
