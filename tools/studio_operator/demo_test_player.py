@@ -293,14 +293,20 @@ def main() -> int:
 		"relevant_processes": [],
 	}
 
-	if args.mode == "observe":
-		observe_mode(report, state)
-	elif args.mode == "record-only":
-		record_only_mode(report, state, report["duration"])
-	elif args.mode == "manual-play-record":
-		manual_play_record_mode(report, state, report["duration"])
-	else:
-		run_demo_mode(report, state, report["duration"], args.focus_mode)
+	try:
+		if args.mode == "observe":
+			observe_mode(report, state)
+		elif args.mode == "record-only":
+			record_only_mode(report, state, report["duration"])
+		elif args.mode == "manual-play-record":
+			manual_play_record_mode(report, state, report["duration"])
+		else:
+			run_demo_mode(report, state, report["duration"], args.focus_mode)
+	except Exception as exc:
+		report["result_status"] = "DEMO_ERROR"
+		report["note"] = f"Error during demo execution: {str(exc)}"
+		update_status(state, "DEMO_ERROR", str(exc))
+		print(f"Error: {exc}", file=sys.stderr)
 
 	collect_markers(report, state)
 
