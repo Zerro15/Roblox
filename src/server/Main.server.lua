@@ -32,6 +32,8 @@ local towerPosition = firstPathPoint + Vector3.new(-14, 2.5, 20)
 local testTower = TowerService:PlaceTower("BasicTower", towerPosition)
 if testTower then
 	print(string.format("[Main] Placed test tower: %s", testTower.Name))
+else
+	warn("[Main] Failed to place test tower")
 end
 
 TowerService:StartAllTowersCombat()

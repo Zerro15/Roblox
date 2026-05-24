@@ -127,6 +127,29 @@ function TowerService:PlaceTower(towerType, position)
 		return nil
 	end
 
+	local cost = config.cost or 0
+	if cost > 0 and not EconomyService:CanAfford(cost) then
+		print(string.format(
+			"[TowerService] Cannot place %s: costs %d, have %d",
+			towerType,
+			cost,
+			EconomyService:GetMoney()
+		))
+		return nil
+	end
+
+	if cost > 0 then
+		local spent = EconomyService:Spend(cost)
+		if not spent then
+			print(string.format(
+				"[TowerService] Failed to spend %d for %s",
+				cost,
+				towerType
+			))
+			return nil
+		end
+	end
+
 	local towersFolder = RuntimeService:GetContainer("Towers")
 	local tower = Instance.new("Part")
 	tower.Name = towerType
@@ -145,11 +168,11 @@ function TowerService:PlaceTower(towerType, position)
 	tower:SetAttribute("Range", config.range)
 	tower:SetAttribute("FireRate", config.fireRate)
 	tower:SetAttribute("IsAttacking", false)
-	tower:SetAttribute("Cost", config.cost)
+	tower:SetAttribute("Cost", cost)
 	tower.Parent = towersFolder
 	self.activeTowers[getTowerKey(tower)] = tower
 
-	print(string.format("[TowerService] Tower placed: %s", tower.Name))
+	print(string.format("[TowerService] Tower placed: %s (cost: %d)", tower.Name, cost))
 
 	return tower
 end
