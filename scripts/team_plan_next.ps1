@@ -18,8 +18,18 @@ if (Test-Path $nextActionsFile) {
     foreach ($task in $tasks | Select-Object -First 5) {
         $lines = $task -split "`n"
         $title = $lines[0].Trim()
-        $priority = $lines[1] -match "Priority.*" ? $matches[0] : "Unknown"
-        $effort = $lines[2] -match "Effort.*" ? $matches[0] : "Unknown"
+
+        if ($lines[1] -match "Priority.*") {
+            $priority = $matches[0]
+        } else {
+            $priority = "Unknown"
+        }
+
+        if ($lines[2] -match "Effort.*") {
+            $effort = $matches[0]
+        } else {
+            $effort = "Unknown"
+        }
 
         Write-Host "`n[$taskNum] $title" -ForegroundColor Green
         Write-Host "  $priority"
