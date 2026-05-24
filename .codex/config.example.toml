@@ -1,0 +1,98 @@
+# Codex CLI Configuration Example
+#
+# This is an example configuration for Codex CLI profiles.
+# Copy this file to .codex/config.toml and customize for your setup.
+#
+# DO NOT commit real API keys or secrets to this file.
+# Use environment variables or secure credential storage instead.
+
+# Project metadata
+[project]
+name = "roblox-tower-defense"
+description = "Tower Defense prototype for Roblox"
+version = "0.1.0"
+
+# Quick profile - for documentation and status tasks
+[profiles.quick]
+# Model to use (replace with your available model)
+model = "gpt-4o-mini"
+# Approval policy: "on-request" = ask before executing, "auto" = execute automatically
+approval_policy = "on-request"
+# Temperature: 0.0-1.0 (lower = more deterministic, higher = more creative)
+temperature = 0.3
+# Max tokens for response
+max_tokens = 2000
+# Timeout in seconds
+timeout = 30
+
+# Code profile - for feature implementation and bug fixes
+[profiles.code]
+model = "gpt-4o"
+approval_policy = "on-request"
+temperature = 0.5
+max_tokens = 4000
+timeout = 60
+
+# Deep profile - for architecture and complex tasks
+[profiles.deep]
+model = "gpt-4o"
+approval_policy = "on-request"
+temperature = 0.7
+max_tokens = 8000
+timeout = 120
+
+# Verify profile - for testing and verification
+[profiles.verify]
+model = "gpt-4o-mini"
+approval_policy = "on-request"
+temperature = 0.2
+max_tokens = 3000
+timeout = 45
+
+# Safety settings
+[safety]
+# Prevent dangerous operations
+prevent_force_push = true
+prevent_delete_branches = true
+require_pr_review = true
+# Require approval for risky operations
+require_approval_for_deep = true
+require_approval_for_merge = true
+
+# Logging
+[logging]
+# Log level: debug, info, warning, error
+level = "info"
+# Log file location
+file = "logs/codex.log"
+# Keep logs for N days
+retention_days = 30
+
+# Integration
+[integration]
+# GitHub settings
+github_enabled = true
+# Auto-create PRs
+auto_create_pr = false
+# Require PR checks before merge
+require_checks = true
+
+# Model notes
+#
+# Replace model names with what's available in your Codex account:
+# - gpt-4o-mini: Fast, cheap, good for quick tasks
+# - gpt-4o: Balanced, good for code
+# - gpt-4-turbo: Powerful, good for complex tasks
+# - claude-opus: Maximum reasoning (if available)
+#
+# Check your Codex account for available models.
+# Run: codex models list
+#
+# DO NOT hardcode API keys here.
+# Use environment variables instead:
+# - CODEX_API_KEY
+# - CODEX_ORG_ID
+#
+# Example in PowerShell:
+# $env:CODEX_API_KEY = "your-key-here"
+# codex --profile code
