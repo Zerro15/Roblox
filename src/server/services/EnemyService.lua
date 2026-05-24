@@ -1,3 +1,4 @@
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -5,7 +6,9 @@ local EnemyConfig = require(Shared:WaitForChild("configs"):WaitForChild("EnemyCo
 
 local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
-local EnemyService = {}
+local EnemyService = {
+	activeEnemies = {},
+}
 
 local function toVector3(values)
 	return Vector3.new(values[1], values[2], values[3])
@@ -13,6 +16,75 @@ end
 
 local function toColor3(values)
 	return Color3.new(values[1], values[2], values[3])
+end
+
+local function getEnemyKey(enemy)
+	return enemy:GetDebugId()
+end
+
+function EnemyService:GetActiveEnemies()
+	return self.activeEnemies
+end
+
+function EnemyService:CleanupEnemy(enemy)
+	if not enemy then
+		return
+	end
+
+	self.activeEnemies[getEnemyKey(enemy)] = nil
+
+	if enemy.Parent then
+		enemy:Destroy()
+	end
+end
+
+function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
+	if not enemy or not enemy.Parent then
+		return
+	end
+
+	if not pathPoints or #pathPoints == 0 then
+		warn(string.format("[EnemyService] No path points available for enemy: %s", enemy.Name))
+		return
+	end
+
+	local speed = enemy:GetAttribute("Speed") or 8
+	enemy:SetAttribute("IsMoving", true)
+
+	for index, point in ipairs(pathPoints) do
+		if not enemy or not enemy.Parent then
+			self:CleanupEnemy(enemy)
+			return
+		end
+
+		local currentPosition = enemy.Position
+		local targetPosition = Vector3.new(point.X, currentPosition.Y, point.Z)
+		local distance = (targetPosition - currentPosition).Magnitude
+		local duration = math.max(distance / speed, 0.1)
+
+		local tween = TweenService:Create(
+			enemy,
+			TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+			{ Position = targetPosition }
+		)
+		tween:Play()
+		tween.Completed:Wait()
+
+		if enemy and enemy.Parent then
+			enemy:SetAttribute("PathIndex", index)
+		end
+	end
+
+	if enemy and enemy.Parent then
+		print("[EnemyService] Enemy reached exit: " .. enemy.Name)
+	end
+	self:CleanupEnemy(enemy)
+end
+
+function EnemyService:StartEnemyMovement(enemy, pathPoints)
+	task.spawn(function()
+		self:MoveEnemyAlongPath(enemy, pathPoints)
+	end)
 end
 
 function EnemyService:SpawnEnemy(enemyType, position)
@@ -39,8 +111,13 @@ function EnemyService:SpawnEnemy(enemyType, position)
 	enemy:SetAttribute("MaxHealth", config.maxHealth)
 	enemy:SetAttribute("Health", config.maxHealth)
 	enemy:SetAttribute("Speed", config.speed)
+	enemy:SetAttribute("IsMoving", false)
+	enemy:SetAttribute("PathIndex", 1)
 	enemy:SetAttribute("Reward", config.reward)
 	enemy.Parent = enemiesFolder
+	self.activeEnemies[getEnemyKey(enemy)] = enemy
+
+	print(string.format("[EnemyService] Spawned enemy %s at %.1f, %.1f, %.1f", enemy.Name, enemy.Position.X, enemy.Position.Y, enemy.Position.Z))
 
 	return enemy
 end

@@ -5,6 +5,7 @@ local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local WaveConfig = require(Shared:WaitForChild("configs"):WaitForChild("WaveConfig"))
 
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
+local PathService = require(script.Parent:WaitForChild("PathService"))
 
 local WaveService = {
 	currentWave = 0,
@@ -24,25 +25,36 @@ function WaveService:StartWave(waveNumber)
 	self.currentWave = waveNumber
 
 	local spawnedEnemies = {}
-	local startPosition = toVector3(GameConfig.DefaultEnemySpawn)
-	local offsetX = 0
+	local pathPoints = PathService:GetPathPoints()
+	local startPosition = pathPoints[1] or toVector3(GameConfig.DefaultEnemySpawn)
 
-	for _, entry in ipairs(waveEntries) do
-		for _ = 1, entry.count do
-			local spawnPosition = startPosition + Vector3.new(offsetX, 0, 0)
-			local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
-			if enemy then
-				table.insert(spawnedEnemies, enemy)
+	task.spawn(function()
+		local offsetX = 0
+
+		for _, entry in ipairs(waveEntries) do
+			for _ = 1, entry.count do
+				local spawnPosition = startPosition + Vector3.new(offsetX, 1.5, 0)
+				local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
+				if enemy then
+					table.insert(spawnedEnemies, enemy)
+					EnemyService:StartEnemyMovement(enemy, pathPoints)
+					print(string.format("[WaveService] Spawned moving enemy %s", enemy.Name))
+				end
+
+				offsetX += 4
+				task.wait(entry.interval or 0.5)
 			end
-			offsetX += 6
 		end
-	end
 
-	print(string.format("[WaveService] Started wave %d with %d spawned enemies", waveNumber, #spawnedEnemies))
+		print(string.format("[WaveService] Test wave spawned %d enemies", #spawnedEnemies))
+	end)
+
+	print(string.format("[WaveService] Started wave %d with %d planned enemies", waveNumber, #spawnedEnemies))
 	return spawnedEnemies
 end
 
 function WaveService:SpawnTestWave()
+	print("[WaveService] Starting test wave ...")
 	return self:StartWave(1)
 end
 

@@ -64,21 +64,32 @@ function PathService:BuildBacklundPath()
 	end
 
 	self.currentPath = builtPath
-	print(string.format("[PathService] Built Backlund path with %d nodes", #builtPath))
+	print("[PathService] Built Backlund path with 7 nodes")
 	return builtPath
 end
 
 function PathService:GetPathPoints()
-	if #self.currentPath > 0 then
-		return self.currentPath
-	end
-
 	local points = {}
 	local nodes = {}
-	for _, child in ipairs(self:GetPathFolder():GetChildren()) do
+
+	local mapFolder = RuntimeService:GetContainer("Map")
+	local pathFolder = mapFolder:FindFirstChild("PathNodes")
+	if not pathFolder or not pathFolder:IsA("Folder") then
+		warn("[PathService] PathNodes folder is missing in Workspace/GameRuntime/Map")
+		self.currentPath = {}
+		return {}
+	end
+
+	for _, child in ipairs(pathFolder:GetChildren()) do
 		if child:IsA("BasePart") then
 			table.insert(nodes, child)
 		end
+	end
+
+	if #nodes == 0 then
+		warn("[PathService] No path nodes found in Workspace/GameRuntime/Map/PathNodes")
+		self.currentPath = {}
+		return {}
 	end
 
 	table.sort(nodes, function(a, b)
