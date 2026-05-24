@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TowerConfig = require(Shared:WaitForChild("configs"):WaitForChild("TowerConfig"))
 
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
 local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
@@ -97,10 +98,14 @@ function TowerService:StartTowerCombat(tower)
 			if enemy then
 				print(string.format("[TowerService] Target acquired: %s -> %s", tower.Name, enemy.Name))
 				local damage = tower:GetAttribute("Damage") or 0
-				local attacked = EnemyService:DamageEnemy(enemy, damage, tower.Name)
-				if attacked then
+				local result = EnemyService:DamageEnemy(enemy, damage, tower.Name)
+				if result and result.damaged then
 					print(string.format("[TowerService] Attacked enemy %s with %s", enemy.Name, tower.Name))
 					self:CreateDebugAttackBeam(tower, enemy)
+
+					if result.defeated == true then
+						EconomyService:AwardForEnemy(result.enemyName, result.reward, tower.Name)
+					end
 				end
 			end
 

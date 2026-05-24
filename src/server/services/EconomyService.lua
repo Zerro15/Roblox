@@ -13,6 +13,10 @@ function EconomyService:CanAfford(amount)
 end
 
 function EconomyService:Spend(amount)
+	if amount <= 0 then
+		return true
+	end
+
 	if not self:CanAfford(amount) then
 		return false
 	end
@@ -22,8 +26,32 @@ function EconomyService:Spend(amount)
 end
 
 function EconomyService:Add(amount)
+	if amount <= 0 then
+		return self.currentMoney
+	end
+
 	self.currentMoney += amount
 	return self.currentMoney
+end
+
+function EconomyService:GetMoney()
+	return self.currentMoney
+end
+
+function EconomyService:AwardForEnemy(enemyName, reward, source)
+	if reward <= 0 then
+		return self.currentMoney
+	end
+
+	local currentMoney = self:Add(reward)
+	print(string.format(
+		"[EconomyService] Awarded %d for %s by %s. Money: %d",
+		reward,
+		enemyName or "UnknownEnemy",
+		source or "UnknownSource",
+		currentMoney
+	))
+	return currentMoney
 end
 
 function EconomyService:Init()
