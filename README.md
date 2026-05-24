@@ -442,6 +442,35 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 - `projectile visuals`
 - `UI money display`
 
+## Wave Progression
+
+Добавлен базовый последовательный запуск волн.
+
+### Как это работает
+
+- `WaveService` запускает волны по очереди, а не только одну тестовую
+- после спавна всех врагов сервис ждет, пока `EnemyService:GetActiveEnemies()` очистится
+- между волнами есть `intermissionSeconds`
+- после завершения заданного числа волн loop пишет итоговый лог
+
+### Где смотреть
+
+- `Workspace/GameRuntime/Enemies`
+- `Output` logs
+
+### Какие логи должны быть
+
+- `[WaveService] Starting wave`
+- `[WaveService] Wave completed`
+- `[WaveService] Wave loop completed`
+
+### Следующий этап
+
+- `tower placement spending`
+- `UI money display`
+- `projectile visuals`
+- `base health / lives`
+
 ## Следующий этап развития
 
 1. `enemy movement along PathNodes`

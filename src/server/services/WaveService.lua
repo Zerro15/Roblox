@@ -9,6 +9,9 @@ local PathService = require(script.Parent:WaitForChild("PathService"))
 
 local WaveService = {
 	currentWave = 0,
+	isWaveRunning = false,
+	wavesCompleted = 0,
+	intermissionSeconds = 5,
 }
 
 local function toVector3(values)
@@ -16,46 +19,119 @@ local function toVector3(values)
 end
 
 function WaveService:StartWave(waveNumber)
+	if self.isWaveRunning then
+		warn(string.format("[WaveService] Cannot start wave %s while wave %s is still running", tostring(waveNumber), tostring(self.currentWave)))
+		return false
+	end
+
 	local waveEntries = WaveConfig[waveNumber]
 	if not waveEntries then
 		warn(string.format("[WaveService] Unknown wave: %s", tostring(waveNumber)))
-		return {}
+		return false
 	end
 
 	self.currentWave = waveNumber
+	self.isWaveRunning = true
+	print("[WaveService] Starting wave " .. waveNumber)
 
 	local spawnedEnemies = {}
 	local pathPoints = PathService:GetPathPoints()
 	local startPosition = pathPoints[1] or toVector3(GameConfig.DefaultEnemySpawn)
 
-	task.spawn(function()
-		local offsetX = 0
+	local offsetX = 0
 
-		for _, entry in ipairs(waveEntries) do
-			for _ = 1, entry.count do
-				local spawnPosition = startPosition + Vector3.new(offsetX, 1.5, 0)
-				local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
-				if enemy then
-					table.insert(spawnedEnemies, enemy)
-					EnemyService:StartEnemyMovement(enemy, pathPoints)
-					print(string.format("[WaveService] Spawned moving enemy %s", enemy.Name))
-				end
-
-				offsetX += 4
-				task.wait(entry.interval or 0.5)
+	for _, entry in ipairs(waveEntries) do
+		for _ = 1, entry.count do
+			local spawnPosition = startPosition + Vector3.new(offsetX, 1.5, 0)
+			local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
+			if enemy then
+				table.insert(spawnedEnemies, enemy)
+				EnemyService:StartEnemyMovement(enemy, pathPoints)
+				print(string.format("[WaveService] Spawned moving enemy %s", enemy.Name))
 			end
+
+			offsetX += 4
+			task.wait(entry.interval or 0.5)
 		end
+	end
 
-		print(string.format("[WaveService] Test wave spawned %d enemies", #spawnedEnemies))
-	end)
-
-	print(string.format("[WaveService] Started wave %d with %d planned enemies", waveNumber, #spawnedEnemies))
-	return spawnedEnemies
+	print(string.format("[WaveService] Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
+	self:WaitForWaveClear()
+	self.isWaveRunning = false
+	self.wavesCompleted += 1
+	print("[WaveService] Wave completed " .. waveNumber)
+	return true
 end
 
 function WaveService:SpawnTestWave()
 	print("[WaveService] Starting test wave ...")
 	return self:StartWave(1)
+end
+
+function WaveService:GetCurrentWave()
+	return self.currentWave
+end
+
+function WaveService:IsWaveRunning()
+	return self.isWaveRunning
+end
+
+function WaveService:GetWaveStatus()
+	return {
+		currentWave = self.currentWave,
+		isWaveRunning = self.isWaveRunning,
+		wavesCompleted = self.wavesCompleted,
+		intermissionSeconds = self.intermissionSeconds,
+		aliveEnemies = self:CountAliveEnemies(),
+	}
+end
+
+function WaveService:CountAliveEnemies()
+	local aliveCount = 0
+
+	for _ in pairs(EnemyService:GetActiveEnemies()) do
+		aliveCount += 1
+	end
+
+	return aliveCount
+end
+
+function WaveService:WaitForWaveClear()
+	local timeoutAt = os.clock() + 120
+
+	while self:CountAliveEnemies() > 0 do
+		if os.clock() >= timeoutAt then
+			warn("[WaveService] Wave clear wait timed out")
+			return false
+		end
+
+		task.wait(0.5)
+	end
+
+	return true
+end
+
+function WaveService:StartNextWave()
+	return self:StartWave(self.currentWave + 1)
+end
+
+function WaveService:StartWaveLoop(maxWaves)
+	task.spawn(function()
+		local totalWaves = math.min(maxWaves or #WaveConfig, #WaveConfig)
+
+		for waveNumber = 1, totalWaves do
+			local started = self:StartWave(waveNumber)
+			if not started then
+				break
+			end
+
+			if waveNumber < totalWaves then
+				task.wait(self.intermissionSeconds)
+			end
+		end
+
+		print("[WaveService] Wave loop completed")
+	end)
 end
 
 function WaveService:Init()
