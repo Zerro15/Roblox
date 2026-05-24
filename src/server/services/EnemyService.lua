@@ -26,6 +26,19 @@ function EnemyService:GetActiveEnemies()
 	return self.activeEnemies
 end
 
+function EnemyService:IsEnemyAlive(enemy)
+	if not enemy then
+		return false
+	end
+
+	if not enemy.Parent then
+		return false
+	end
+
+	local health = enemy:GetAttribute("Health") or 0
+	return health > 0
+end
+
 function EnemyService:CleanupEnemy(enemy)
 	if not enemy then
 		return
@@ -38,8 +51,27 @@ function EnemyService:CleanupEnemy(enemy)
 	end
 end
 
+function EnemyService:DamageEnemy(enemy, amount, source)
+	if not self:IsEnemyAlive(enemy) then
+		return false
+	end
+
+	local currentHealth = enemy:GetAttribute("Health") or 0
+	local newHealth = currentHealth - amount
+	enemy:SetAttribute("Health", newHealth)
+
+	if newHealth <= 0 then
+		print("[EnemyService] Enemy defeated: " .. enemy.Name)
+		self:CleanupEnemy(enemy)
+		return true
+	end
+
+	print(string.format("[EnemyService] Damaged enemy %s for %s, health: %s", enemy.Name, tostring(amount), tostring(newHealth)))
+	return true
+end
+
 function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
-	if not enemy or not enemy.Parent then
+	if not self:IsEnemyAlive(enemy) then
 		return
 	end
 
@@ -52,7 +84,7 @@ function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
 	enemy:SetAttribute("IsMoving", true)
 
 	for index, point in ipairs(pathPoints) do
-		if not enemy or not enemy.Parent then
+		if not self:IsEnemyAlive(enemy) then
 			self:CleanupEnemy(enemy)
 			return
 		end
@@ -70,12 +102,14 @@ function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
 		tween:Play()
 		tween.Completed:Wait()
 
-		if enemy and enemy.Parent then
+		if self:IsEnemyAlive(enemy) then
 			enemy:SetAttribute("PathIndex", index)
+		else
+			return
 		end
 	end
 
-	if enemy and enemy.Parent then
+	if self:IsEnemyAlive(enemy) then
 		print("[EnemyService] Enemy reached exit: " .. enemy.Name)
 	end
 	self:CleanupEnemy(enemy)
