@@ -1,0 +1,15 @@
+.venv/
+.venv_studio_operator/
+__pycache__/
+*.pyc
+logs/screenshots/
+logs/*.log
+logs/*.md
+logs/studio_operator_state.json
+build/
+*.rbxlx
+*.rbxl
+.env
+.env.*
+.DS_Store
+Thumbs.db

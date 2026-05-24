@@ -1,0 +1,25 @@
+{
+  "commands": [
+    {
+      "type": "ensure_folder",
+      "name": "Generated"
+    },
+    {
+      "type": "create_part",
+      "name": "SpawnPlatform",
+      "parent": "Workspace/Generated",
+      "shape": "Block",
+      "size": [20, 1, 20],
+      "position": [0, 5, 0],
+      "anchored": true,
+      "color": [0.2, 0.6, 1.0]
+    },
+    {
+      "type": "create_script",
+      "name": "HelloBridge",
+      "parent": "ServerScriptService",
+      "className": "Script",
+      "source": "print('Bridge connected')"
+    }
+  ]
+}
