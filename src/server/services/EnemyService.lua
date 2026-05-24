@@ -23,7 +23,17 @@ local function getEnemyKey(enemy)
 end
 
 function EnemyService:GetActiveEnemies()
-	return self.activeEnemies
+	local aliveEnemies = {}
+
+	for enemyKey, enemy in pairs(self.activeEnemies) do
+		if self:IsEnemyAlive(enemy) then
+			aliveEnemies[enemyKey] = enemy
+		else
+			self.activeEnemies[enemyKey] = nil
+		end
+	end
+
+	return aliveEnemies
 end
 
 function EnemyService:IsEnemyAlive(enemy)

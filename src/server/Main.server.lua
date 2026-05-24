@@ -35,5 +35,5 @@ if testTower then
 end
 
 TowerService:StartAllTowersCombat()
-WaveService:SpawnTestWave()
-print("[Main] Triggered test wave")
+WaveService:StartWaveLoop(3)
+print("[Main] Triggered wave loop")
