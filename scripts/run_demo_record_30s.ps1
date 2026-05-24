@@ -16,8 +16,9 @@ if (-not (Test-Path $venvPath)) {
 
 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
 
+Write-Output "Quick demo test: 30 second recording"
 Write-Output "Recording will start first. Then click Roblox Studio and press Play/F5 manually."
 & $pythonExe -m pip install -r $requirementsPath
-& $pythonExe $demoPath --mode manual-play-record --duration 90
+& $pythonExe $demoPath --mode manual-play-record --duration 30
 Write-Output ("Demo report: " + $demoReportPath)
 Write-Output ("Recordings: " + $recordingsPath)
