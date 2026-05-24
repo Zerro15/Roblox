@@ -232,7 +232,7 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 		update_status(state, "DEMO_RECORDING_FAILED", recording.get("error"))
 
 
-
+def run_demo_mode(report: dict[str, Any], state: dict[str, Any], duration: int, focus_mode: str) -> None:
 	if not build_place(report, state):
 		report["result_status"] = "DEMO_RECORDING_FAILED"
 		report["note"] = report.get("build_error", "Build failed.")
@@ -270,6 +270,8 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 	else:
 		report["result_status"] = "DEMO_RECORDING_FAILED"
 		update_status(state, "DEMO_RECORDING_FAILED", recording.get("error"))
+
+
 
 
 def main() -> int:
