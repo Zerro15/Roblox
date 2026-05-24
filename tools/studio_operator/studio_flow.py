@@ -439,6 +439,7 @@ def main() -> int:
     print(f"Flow report written to: {result['report_path']}")
     print(f"Marker report written to: {result['marker_report_path']}")
     print(f"State file written to: {result['state_path']}")
+    print(f"Tip: for video capture use {PROJECT_ROOT / 'tools' / 'studio_operator' / 'demo_test_player.py'}")
     for screenshot in result.get("screenshots", []):
         print(f"Screenshot: {screenshot['path']}")
     return 0
