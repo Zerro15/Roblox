@@ -492,3 +492,50 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 5. При необходимости мы используем bridge как live-командный слой для генерации или тестовых операций в открытой Studio
 
 Так у нас есть и нормальная кодовая база, и быстрый live-канал управления игрой.
+
+## Safe PR Merge Manager
+
+Добавлен безопасный менеджер merge для Pull Request.
+
+### Как посмотреть PR
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pr_status.ps1
+```
+
+### Как безопасно смержить конкретный PR
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pr_safe_merge.ps1 -PrNumber 7
+```
+
+### Как смержить единственный открытый PR
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pr_safe_merge_latest.ps1
+```
+
+### Какие проверки выполняются
+
+- `working tree` должен быть чистым
+- `gh auth status` должен проходить
+- PR должен быть не `draft`
+- PR должен целиться в `main`
+- PR не должен быть `cross-repository`
+- PR не должен быть в состоянии `CONFLICTING`
+- локальный `rojo build` через [scripts/build_place.ps1](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/scripts/build_place.ps1) должен проходить
+- `build/game.rbxlx` должен реально появиться
+- если у PR есть GitHub checks, они не должны падать
+
+### Почему нельзя мержить вслепую
+
+- можно протащить конфликтный PR
+- можно смержить ветку с поломанным build
+- можно случайно смержить чужой или cross-repo PR
+- можно сломать локальную рабочую копию, если merge запускать из dirty tree
+
+### Что делать, если merge не проходит
+
+- если `checks failed`, починить PR и повторить проверку
+- если есть `conflicts`, сначала обновить ветку PR
+- если `dirty tree`, очистить локальные изменения или зафиксировать их в отдельной ветке
