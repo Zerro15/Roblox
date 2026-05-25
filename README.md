@@ -548,6 +548,31 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 
 Так у нас есть и нормальная кодовая база, и быстрый live-канал управления игрой.
 
+## Demo Player Spawn
+
+Добавлен безопасный спавн для игрока при демо-записях и тестировании.
+
+### Как это работает
+
+- [src/server/services/PlayerSpawnService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/PlayerSpawnService.lua)
+  создает `Workspace/GameRuntime/PlayerSpawn` с:
+  - `DemoSpawnPlatform` — видимая платформа (40x2x40) на Y=8
+  - `DemoSpawnLocation` — Roblox SpawnLocation (12x1x12) на Y=11
+  - `DemoSafetyFloor` — невидимый пол (300x2x300) на Y=-10 для защиты от падения в пустоту
+- игрок спавнится на `DemoSpawnLocation` вместо падения в void
+- при Play Mode в Studio персонаж остается на платформе и видна карта, враги, башни
+
+### Где смотреть в Studio
+
+- `Workspace/GameRuntime/PlayerSpawn/DemoSpawnPlatform`
+- `Workspace/GameRuntime/PlayerSpawn/DemoSpawnLocation`
+- `Workspace/GameRuntime/PlayerSpawn/DemoSafetyFloor`
+
+### Какие логи ожидать в Output
+
+- `[PlayerSpawnService] Demo spawn ready`
+- `[Client] Demo camera activated`
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.

@@ -12,6 +12,7 @@ local EconomyService = require(services:WaitForChild("EconomyService"))
 local EnemyService = require(services:WaitForChild("EnemyService"))
 local TowerService = require(services:WaitForChild("TowerService"))
 local WaveService = require(services:WaitForChild("WaveService"))
+local PlayerSpawnService = require(services:WaitForChild("PlayerSpawnService"))
 
 print(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
 
@@ -22,6 +23,8 @@ EconomyService:Init()
 EnemyService:Init()
 TowerService:Init()
 WaveService:Init()
+PlayerSpawnService:Init()
+print("[Main] Player spawn ready")
 
 MapService:BuildBacklundFogDistrict()
 local pathPoints = PathService:BuildBacklundPath()
