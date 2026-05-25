@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
@@ -19,6 +20,18 @@ local mouse = localPlayer:GetMouse()
 
 local selectedPadName = nil
 local selectedTowerRuntimeId = nil
+local cameraFocus = Vector3.new(0, 5, 0)
+local cameraZoom = 1
+local cameraReady = false
+local cameraRenderConnected = false
+local cameraDragging = false
+local lastDragPosition = nil
+
+local DEFAULT_CAMERA_OFFSET = Vector3.new(-118, 122, -118)
+local CAMERA_MIN_ZOOM = 0.65
+local CAMERA_MAX_ZOOM = 1.55
+local CAMERA_PAN_SPEED = 70
+local CAMERA_DRAG_SPEED = 0.18
 
 local function getRuntime()
 	return Workspace:WaitForChild(GameConfig.RuntimeFolderName, 30)
@@ -48,15 +61,65 @@ local function getPathCenter()
 	return total / count
 end
 
-local function setupPlayableCamera()
+local function applyPlayableCamera()
 	local camera = Workspace.CurrentCamera
-	local cameraPosition = Vector3.new(-118, 122, -118)
+	if not camera then
+		return
+	end
 
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.CFrame = CFrame.new(cameraFocus + (DEFAULT_CAMERA_OFFSET * cameraZoom), cameraFocus)
+end
+
+local function resetPlayableCamera()
+	cameraFocus = getPathCenter() + Vector3.new(0, 5, 0)
+	cameraZoom = 1
+	cameraReady = true
+	applyPlayableCamera()
+end
+
+local function panCamera(delta)
+	if not cameraReady then
+		return
+	end
+
+	cameraFocus += delta
+	applyPlayableCamera()
+end
+
+local function setupPlayableCamera()
 	for _ = 1, 20 do
-		local lookAt = getPathCenter() + Vector3.new(0, 5, 0)
-		camera.CameraType = Enum.CameraType.Scriptable
-		camera.CFrame = CFrame.new(cameraPosition, lookAt)
+		resetPlayableCamera()
 		task.wait(0.25)
+	end
+
+	if not cameraRenderConnected then
+		cameraRenderConnected = true
+		RunService.RenderStepped:Connect(function(deltaTime)
+			if not cameraReady then
+				return
+			end
+
+			local pan = Vector3.zero
+			if UserInputService:IsKeyDown(Enum.KeyCode.Up) then
+				pan += Vector3.new(0, 0, -1)
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Down) then
+				pan += Vector3.new(0, 0, 1)
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+				pan += Vector3.new(-1, 0, 0)
+			end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+				pan += Vector3.new(1, 0, 0)
+			end
+
+			if pan.Magnitude > 0 then
+				cameraFocus += pan.Unit * CAMERA_PAN_SPEED * deltaTime * cameraZoom
+			end
+
+			applyPlayableCamera()
+		end)
 	end
 
 	print("[Playable] Camera ready")
@@ -134,6 +197,17 @@ local function findTowerRoot(runtimeId)
 	return nil
 end
 
+local function raycastScreenPosition(screenPosition)
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+
+	local ray = camera:ViewportPointToRay(screenPosition.X, screenPosition.Y)
+	local result = Workspace:Raycast(ray.Origin, ray.Direction * 1000)
+	return result and result.Instance or nil
+end
+
 local function setupPlayableUi()
 	local runtime = getRuntime()
 	if not runtime then
@@ -171,7 +245,7 @@ local function setupPlayableUi()
 	controls.TextColor3 = Color3.fromRGB(160, 245, 190)
 	controls.TextScaled = true
 	controls.Font = Enum.Font.GothamBold
-	controls.Text = "Нажми на синюю площадку, чтобы поставить башню. Не дай врагам дойти до ворот."
+	controls.Text = "Нажми синюю площадку. B - построить, S - продать, ESC - снять выбор, R - камера, колесо - зум."
 	controls.Parent = screenGui
 
 	-- Selection panel (right side)
@@ -248,6 +322,20 @@ local function setupPlayableUi()
 		Color3.fromRGB(25, 92, 185)
 	)
 
+	local selectedPadBox = Instance.new("SelectionBox")
+	selectedPadBox.Name = "SelectedPadBox"
+	selectedPadBox.Color3 = Color3.fromRGB(80, 210, 255)
+	selectedPadBox.LineThickness = 0.08
+	selectedPadBox.SurfaceTransparency = 0.85
+	selectedPadBox.Parent = Workspace.CurrentCamera or Workspace
+
+	local selectedTowerBox = Instance.new("SelectionBox")
+	selectedTowerBox.Name = "SelectedTowerBox"
+	selectedTowerBox.Color3 = Color3.fromRGB(255, 218, 90)
+	selectedTowerBox.LineThickness = 0.08
+	selectedTowerBox.SurfaceTransparency = 0.85
+	selectedTowerBox.Parent = Workspace.CurrentCamera or Workspace
+
 	local function updateHud()
 		moneyLabel.Text = string.format("Деньги: $%s", tostring(runtime:GetAttribute("Money") or 0))
 		waveLabel.Text = string.format("Волна: %s", tostring(runtime:GetAttribute("Wave") or 0))
@@ -265,6 +353,8 @@ local function setupPlayableUi()
 	local function clearSelection()
 		selectedPadName = nil
 		selectedTowerRuntimeId = nil
+		selectedPadBox.Adornee = nil
+		selectedTowerBox.Adornee = nil
 		selectionPanel.Visible = false
 		buildBasicBtn.Visible = false
 		sellBtn.Visible = false
@@ -273,14 +363,19 @@ local function setupPlayableUi()
 		selInfo.Text = ""
 	end
 
-	local function selectPad(padName, occupied)
+	local function selectPad(buildPad)
 		clearSelection()
+		if not buildPad then
+			return
+		end
+		local occupied = buildPad:GetAttribute("Occupied") or false
 		if occupied then
 			return
 		end
-		selectedPadName = padName
+		selectedPadName = buildPad.Name
+		selectedPadBox.Adornee = buildPad
 		selectionPanel.Visible = true
-		selTitle.Text = "Площадка: " .. padName
+		selTitle.Text = "Площадка: " .. buildPad.Name
 		selInfo.Text = "Выбери башню для постройки."
 		buildBasicBtn.Visible = true
 	end
@@ -295,6 +390,7 @@ local function setupPlayableUi()
 			return
 		end
 		selectedTowerRuntimeId = runtimeId
+		selectedTowerBox.Adornee = towerPart
 		selectionPanel.Visible = true
 		selTitle.Text = towerPart:GetAttribute("DisplayName") or towerPart.Name
 		local cost = towerPart:GetAttribute("Cost") or 0
@@ -324,18 +420,21 @@ local function setupPlayableUi()
 		PlaceTowerRequest:FireServer("BasicTower", nil)
 	end)
 
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		if gameProcessed then
-			return
+	local function buildSelectedOrQuick()
+		PlaceTowerRequest:FireServer("BasicTower", selectedPadName)
+		if selectedPadName then
+			clearSelection()
 		end
+	end
 
-		if input.KeyCode == Enum.KeyCode.B then
-			PlaceTowerRequest:FireServer("BasicTower", nil)
+	local function sellSelectedTower()
+		if selectedTowerRuntimeId then
+			SellTowerRequest:FireServer(selectedTowerRuntimeId)
+			clearSelection()
 		end
-	end)
+	end
 
-	mouse.Button1Down:Connect(function()
-		local target = mouse.Target
+	local function selectTarget(target)
 		if not target then
 			clearSelection()
 			return
@@ -343,8 +442,7 @@ local function setupPlayableUi()
 
 		local buildPad = findAncestorInFolder(target, "BuildPads")
 		if buildPad then
-			local occupied = buildPad:GetAttribute("Occupied") or false
-			selectPad(buildPad.Name, occupied)
+			selectPad(buildPad)
 			return
 		end
 
@@ -355,6 +453,60 @@ local function setupPlayableUi()
 		end
 
 		clearSelection()
+	end
+
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if input.KeyCode == Enum.KeyCode.B then
+			buildSelectedOrQuick()
+		elseif input.KeyCode == Enum.KeyCode.S then
+			sellSelectedTower()
+		elseif input.KeyCode == Enum.KeyCode.Escape then
+			clearSelection()
+		elseif input.KeyCode == Enum.KeyCode.R then
+			resetPlayableCamera()
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+			cameraDragging = true
+			lastDragPosition = input.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			cameraZoom = math.clamp(cameraZoom - (input.Position.Z * 0.08), CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM)
+			applyPlayableCamera()
+		elseif cameraDragging and input.UserInputType == Enum.UserInputType.MouseMovement and lastDragPosition then
+			local delta = input.Position - lastDragPosition
+			lastDragPosition = input.Position
+			panCamera(Vector3.new(delta.X, 0, delta.Y) * CAMERA_DRAG_SPEED * cameraZoom)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton2 then
+			cameraDragging = false
+			lastDragPosition = nil
+		end
+	end)
+
+	UserInputService.TouchTap:Connect(function(touchPositions, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		local firstTouch = touchPositions and touchPositions[1]
+		selectTarget(firstTouch and raycastScreenPosition(firstTouch) or nil)
+	end)
+
+	mouse.Button1Down:Connect(function()
+		selectTarget(mouse.Target)
 	end)
 
 	print("[Playable] UI ready")
