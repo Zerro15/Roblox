@@ -699,6 +699,45 @@ powershell -ExecutionPolicy Bypass -File .\scripts\pipeline_smoke_test.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1
 ```
 
+## Demo Evidence Report
+
+Добавлен короткий отчёт для ревьюера, который агрегирует уже созданные pipeline/demo артефакты в один Markdown без повторного запуска Roblox Studio.
+
+Рекомендуемый порядок:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\pipeline_smoke_test.ps1'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\demo_autofix_loop.ps1'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\demo_evidence_report.ps1'"
+```
+
+Отчёт создаётся здесь:
+
+- `logs/demo_evidence_report.md`
+- `logs/demo_evidence_report.json`
+
+Что показывает evidence report:
+
+- branch, commit и рабочий статус git
+- результат smoke test и количество проверок
+- demo diagnosis и Play confirmation evidence
+- выбранное окно Studio, HWND/PID/root HWND
+- F5 method и попытки запуска Play
+- количество runtime markers и ключевые markers
+- путь к последнему MP4 и размер видео
+- пути к исходным reports
+- какие артефакты сгенерированы, но намеренно не коммитятся
+
+Успешный ожидаемый результат:
+
+- `smoke test: PASS`
+- `smoke checks: 22/22`
+- `demo diagnosis: OK`
+- runtime markers найдены
+- MP4 существует в `logs/recordings/`
+
+Важно: `logs/`, `logs/recordings/`, screenshots, build output и диагностические CSV остаются generated artifacts и не должны попадать в commit.
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.
