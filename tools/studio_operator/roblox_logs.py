@@ -27,6 +27,7 @@ PROJECT_MARKERS = [
     "[Client] Demo spectator",
     "[Client] Demo spectator camera activated",
     "[Client] Demo camera target found",
+    "[Client] Demo camera path center found",
     "[RuntimeService]",
     "[MapService]",
     "[PathService]",
@@ -52,7 +53,7 @@ def find_roblox_log_dirs() -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
-def _read_tail(path: Path, max_lines: int = 2500) -> list[str]:
+def _read_tail(path: Path, max_lines: int = 20000) -> list[str]:
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:

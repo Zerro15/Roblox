@@ -62,6 +62,7 @@ def build_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 	report["build_path"] = str(place_path)
 	report["build_status"] = "ok" if ok and place_path.exists() else "failed"
 	state["last_build_path"] = str(place_path) if place_path.exists() else None
+	state["last_build_mtime"] = place_path.stat().st_mtime if place_path.exists() else None
 	return report["build_status"] == "ok"
 
 
@@ -75,15 +76,19 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 		report["open_status"] = "failed"
 		return False
 
-	if is_process_alive(state.get("studio_pid")):
+	if is_process_alive(state.get("studio_pid")) and state.get("studio_loaded_build_mtime") == state.get("last_build_mtime"):
 		report["open_status"] = "already_open"
 		return True
 
+	existing_place_windows = []
 	for window in find_windows():
 		title = window["title"].lower()
 		if "game.rbxlx" in title or ".rbxlx" in title:
-			report["open_status"] = "already_open_foreign"
-			return True
+			existing_place_windows.append(window["title"])
+
+	if existing_place_windows:
+		report["existing_place_windows"] = existing_place_windows
+		report["open_note"] = "Fresh build opened because existing Studio windows may contain stale in-memory place data."
 
 	launch_command = [str(studio_path), str(place_path)]
 	pid = start_process_once(
@@ -93,8 +98,11 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 		PROJECT_ROOT,
 		stdout_path=_log_file("demo_studio_runtime", "stdout"),
 		stderr_path=_log_file("demo_studio_runtime", "stderr"),
+		force_new=True,
 	)
 	report["studio_pid"] = pid
+	state["studio_pid"] = pid
+	state["studio_loaded_build_mtime"] = state.get("last_build_mtime")
 	report["open_status"] = "started"
 	time.sleep(18)
 	return True
@@ -458,13 +466,16 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 
 	matched = report.get("matched_markers", [])
 	project_markers_count = int(report.get("project_markers_count", 0))
+	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
+	diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in matched)
+	client_camera_confirmed = "[Client] Demo spectator camera activated" in matched
 	if report.get("f5_pressed") and project_markers_count == 0:
 		return "RUNTIME_MARKERS_NOT_CAPTURED"
 
 	if 0 < project_markers_count < 3:
 		return "PARTIAL_RUNTIME_CONFIRMED"
 
-	if "[DemoDiagnostics] WaveLoopBeacon marked" not in matched and project_markers_count >= 3:
+	if project_markers_count >= 3 and (not gameplay_confirmed or not diagnostics_confirmed or not client_camera_confirmed):
 		return "PARTIAL_RUNTIME_CONFIRMED"
 
 	if "[Server boot]" not in matched and "[DemoDiagnostics] ServerBootBeacon marked" not in matched:
@@ -494,12 +505,14 @@ def evaluate_success_criteria(report: dict[str, Any]) -> bool:
 		"[Client] Demo spectator camera activated",
 	]
 	marker_hits = sum(1 for marker in required_markers if marker in matched)
+	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
 	return (
 		report.get("build_status") == "ok"
 		and bool(report.get("recording_path"))
 		and report.get("f5_pressed") is True
 		and "F5_PRESSED" in str(report.get("auto_play_status", ""))
 		and marker_hits >= 3
+		and gameplay_confirmed
 		and int(report.get("video_score", 0)) >= 3
 	)
 
@@ -790,7 +803,7 @@ def main() -> int:
 		gameplay_hits = sum(1 for marker in gameplay_loop_markers if marker in matched)
 		diagnostic_hits = sum(1 for marker in diagnostic_beacon_markers if marker in matched)
 
-		if diagnostic_hits >= 5 or project_markers_count >= 5:
+		if (diagnostic_hits >= 3 or project_markers_count >= 3) and gameplay_hits > 0:
 			report["play_status"] = "DEMO_RECORDED_RUNTIME_DIAGNOSTICS_CONFIRMED"
 			report["video_score"] = 4
 		elif diagnostic_hits >= 3 or project_markers_count >= 3:

@@ -110,7 +110,7 @@ def list_windows() -> list[dict[str, Any]]:
     return windows
 
 
-def _score_window(window: dict[str, Any]) -> tuple[int, int]:
+def _score_window(window: dict[str, Any]) -> tuple[int, int, int]:
     title = window["title"].lower()
     score = 0
     if "game.rbxlx" in title:
@@ -125,7 +125,7 @@ def _score_window(window: dict[str, Any]) -> tuple[int, int]:
         score -= 5000
     rect = window["rect"]
     area = max(rect["width"], 0) * max(rect["height"], 0)
-    return score, area
+    return score, area, int(window.get("pid", 0))
 
 
 def find_target_studio_window() -> dict[str, Any] | None:

@@ -28,6 +28,12 @@ SUCCESS_MARKERS = [
     "[Client] Demo spectator camera activated",
 ]
 
+GAMEPLAY_MARKERS = [
+    "[WaveService]",
+    "[TowerService]",
+    "[EnemyService]",
+]
+
 DIAGNOSES = [
     "BUILD_FAILED",
     "STUDIO_WINDOW_NOT_VISIBLE",
@@ -189,9 +195,14 @@ def classify_failure(
         return "VIDEO_TOO_SMALL"
     if project_marker_count == 0:
         return "RUNTIME_MARKERS_NOT_CAPTURED"
+    gameplay_confirmed = any(marker in project_markers for marker in GAMEPLAY_MARKERS)
+    diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in project_markers)
+    client_camera_confirmed = "[Client] Demo spectator camera activated" in project_markers
     if project_marker_count < 3:
         return "PARTIAL_RUNTIME_CONFIRMED"
-    if "[DemoDiagnostics] WaveLoopBeacon marked" not in project_markers:
+    if not gameplay_confirmed:
+        return "PARTIAL_RUNTIME_CONFIRMED"
+    if not diagnostics_confirmed or not client_camera_confirmed:
         return "PARTIAL_RUNTIME_CONFIRMED"
     if "[Server boot]" not in project_markers and "[DemoDiagnostics] ServerBootBeacon marked" not in project_markers:
         return "SERVER_BOOT_NOT_FOUND"
@@ -217,12 +228,14 @@ def success_criteria(
     score: int,
 ) -> bool:
     marker_hits = sum(1 for marker in SUCCESS_MARKERS if marker in matched_markers)
+    gameplay_confirmed = any(marker in matched_markers for marker in GAMEPLAY_MARKERS)
     return (
         build_status == "ok"
         and recording is not None
         and f5_pressed
         and "F5_PRESSED" in auto_play_status
         and marker_hits >= 3
+        and gameplay_confirmed
         and score >= 3
     )
 
