@@ -738,6 +738,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\demo_eviden
 
 Важно: `logs/`, `logs/recordings/`, screenshots, build output и диагностические CSV остаются generated artifacts и не должны попадать в commit.
 
+## Static CI Checks
+
+Добавлена лёгкая статическая CI-проверка для GitHub Actions.
+
+Что делает CI:
+
+- не запускает Roblox Studio
+- не имитирует demo/runtime успех
+- проверяет Python syntax для `tools/studio_operator/*.py`
+- проверяет наличие обязательных pipeline/demo файлов
+- проверяет, что generated artifacts не попали в tracked git files
+
+Для локальной полной demo-проверки по-прежнему используются только ручные сценарии:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\demo_autofix_loop.ps1'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\scripts\demo_evidence_report.ps1'"
+```
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.
