@@ -173,7 +173,7 @@ def check_server_markers_in_logs() -> Check:
         "server_markers",
         False,
         f"None of {server_markers} found in {len(all_logs)} recent logs. "
-        "Server markers require Roblox Studio Play mode to execute Main.server.lua.",
+        "Server markers are not currently observed in the automated Studio run.",
     )
 
 
