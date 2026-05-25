@@ -16,29 +16,75 @@ local PlayerSpawnService = require(services:WaitForChild("PlayerSpawnService"))
 
 print(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
 
-RuntimeService:Init()
-PlayerSpawnService:Init()
-MapService:Init()
-PathService:Init()
-EconomyService:Init()
-EnemyService:Init()
-TowerService:Init()
-WaveService:Init()
-print("[Main] Player spawn ready")
-
-MapService:BuildBacklundFogDistrict()
-local pathPoints = PathService:BuildBacklundPath()
-
-local firstPathPoint = pathPoints[1] or Vector3.new(0, 0, 0)
-local towerPosition = firstPathPoint + Vector3.new(-14, 2.5, 20)
-
-local testTower = TowerService:PlaceTower("BasicTower", towerPosition)
-if testTower then
-	print(string.format("[Main] Placed test tower: %s", testTower.Name))
-else
-	warn("[Main] Failed to place test tower")
+local function runStep(name, callback)
+	print("[Main] Starting " .. name)
+	local ok, err = pcall(callback)
+	if ok then
+		print("[Main] Completed " .. name)
+	else
+		warn("[Main] Failed " .. name .. ": " .. tostring(err))
+	end
 end
 
-TowerService:StartAllTowersCombat()
-WaveService:StartWaveLoop(3)
-print("[Main] Triggered wave loop")
+runStep("RuntimeService:Init", function()
+	RuntimeService:Init()
+end)
+
+runStep("PlayerSpawnService:Init", function()
+	PlayerSpawnService:Init()
+end)
+
+runStep("MapService:Init", function()
+	MapService:Init()
+end)
+
+runStep("PathService:Init", function()
+	PathService:Init()
+end)
+
+runStep("EconomyService:Init", function()
+	EconomyService:Init()
+end)
+
+runStep("EnemyService:Init", function()
+	EnemyService:Init()
+end)
+
+runStep("TowerService:Init", function()
+	TowerService:Init()
+end)
+
+runStep("WaveService:Init", function()
+	WaveService:Init()
+end)
+
+runStep("MapService:BuildBacklundFogDistrict", function()
+	MapService:BuildBacklundFogDistrict()
+end)
+
+local pathPoints
+runStep("PathService:BuildBacklundPath", function()
+	pathPoints = PathService:BuildBacklundPath()
+end)
+
+local firstPathPoint = pathPoints and pathPoints[1] or Vector3.new(0, 0, 0)
+local towerPosition = firstPathPoint + Vector3.new(-14, 2.5, 20)
+
+runStep("TowerService:PlaceTower", function()
+	local testTower = TowerService:PlaceTower("BasicTower", towerPosition)
+	if testTower then
+		print(string.format("[Main] Placed test tower: %s", testTower.Name))
+	else
+		warn("[Main] Failed to place test tower")
+	end
+end)
+
+runStep("TowerService:StartAllTowersCombat", function()
+	TowerService:StartAllTowersCombat()
+end)
+
+runStep("WaveService:StartWaveLoop", function()
+	WaveService:StartWaveLoop(3)
+	print("[Main] Triggered wave loop")
+end)
+

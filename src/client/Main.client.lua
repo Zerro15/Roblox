@@ -7,41 +7,33 @@ local GameConfig = require(Shared:WaitForChild("GameConfig"))
 print(string.format("[Client boot] %s v%s", GameConfig.GameName, GameConfig.Version))
 
 local function setupDemoCamera()
-	print("[Client] Waiting for GameRuntime/Map...")
+	print("[Client] Waiting for DemoPlayerSpawnRoot")
 
-	local gameRuntime = Workspace:WaitForChild("GameRuntime", 30)
-	if not gameRuntime then
-		print("[Client] Demo camera failed: GameRuntime not found")
+	local demoRoot = Workspace:WaitForChild("DemoPlayerSpawnRoot", 15)
+	if not demoRoot then
+		warn("[Client] DemoPlayerSpawnRoot not found")
 		return
 	end
 
-	local mapFolder = gameRuntime:WaitForChild("Map", 30)
-	if not mapFolder then
-		print("[Client] Demo camera failed: Map not found")
+	local demoCameraTarget = demoRoot:WaitForChild("DemoCameraTarget", 5)
+	if not demoCameraTarget then
+		warn("[Client] DemoCameraTarget not found")
 		return
 	end
 
-	local groundOrPathNodes = mapFolder:WaitForChild("Ground", 5) or mapFolder:WaitForChild("PathNodes", 5)
-	if not groundOrPathNodes then
-		print("[Client] Demo camera warning: Ground/PathNodes not found, proceeding anyway")
-	end
+	print("[Client] Demo camera target found")
 
 	local camera = Workspace.CurrentCamera
-	local mapCenter = Vector3.new(0, 10, 0)
-	local cameraPosition = Vector3.new(-70, 85, -70)
+	local cameraPosition = Vector3.new(-80, 90, -80)
 
-	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.new(cameraPosition, mapCenter)
+	for i = 1, 20 do
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.CFrame = CFrame.new(cameraPosition, demoCameraTarget.Position)
+		task.wait(0.5)
+	end
+
 	print("[Client] Demo camera activated")
-
-	task.wait(2)
-	camera.CFrame = CFrame.new(cameraPosition, mapCenter)
-
-	task.wait(3)
-	camera.CFrame = CFrame.new(cameraPosition, mapCenter)
-
-	task.wait(5)
-	camera.CFrame = CFrame.new(cameraPosition, mapCenter)
 end
 
 task.spawn(setupDemoCamera)
+

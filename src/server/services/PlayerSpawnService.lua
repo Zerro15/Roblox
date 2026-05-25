@@ -10,26 +10,15 @@ local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 local PlayerSpawnService = {}
 PlayerSpawnService.spawnCFrame = nil
 
-local function ensureFolder(parent, name)
-	local existing = parent:FindFirstChild(name)
-	if existing and existing:IsA("Folder") then
-		return existing
-	end
-
-	local folder = Instance.new("Folder")
-	folder.Name = name
-	folder.Parent = parent
-	return folder
-end
-
-local function createPart(parent, name, size, position, transparency, material)
+local function createPart(parent, name, size, position, color, transparency, material, canCollide)
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Shape = Enum.PartType.Block
 	part.Size = size
 	part.Position = position
+	part.Color = color
 	part.Anchored = true
-	part.CanCollide = true
+	part.CanCollide = canCollide ~= false
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Transparency = transparency or 0
@@ -59,16 +48,25 @@ function PlayerSpawnService:MoveCharacterToSpawn(character)
 		humanoid.Health = humanoid.MaxHealth
 		humanoid.PlatformStand = false
 		humanoid.Sit = false
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
 	end
 
-	for i = 1, 3 do
+	for i = 1, 5 do
 		character:PivotTo(self.spawnCFrame)
 		humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
 		humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
-		task.wait(0.2)
+		task.wait(0.15)
 	end
 
-	print("[PlayerSpawnService] Character moved to demo spawn")
+	local forceField = character:FindFirstChildOfClass("ForceField")
+	if not forceField then
+		forceField = Instance.new("ForceField")
+		forceField.Visible = false
+		forceField.Parent = character
+	end
+
+	print("[PlayerSpawnService] Character locked to demo spawn")
 end
 
 function PlayerSpawnService:SetupPlayer(player)
@@ -83,19 +81,18 @@ function PlayerSpawnService:SetupPlayer(player)
 
 				if hrp then
 					local y = hrp.Position.Y
-					if y < 0 or y > 300 then
+					if y < 10 or y > 200 then
 						self:MoveCharacterToSpawn(character)
-						print("[PlayerSpawnService] Character unsafe position; moving back to spawn")
+						warn("[PlayerSpawnService] Character unsafe position; reset to demo spawn")
 					end
 				end
 
 				if humanoid and humanoid.Health <= 0 then
+					warn("[PlayerSpawnService] Character died; reloading")
 					player:LoadCharacter()
-					task.wait(0.5)
-					self:MoveCharacterToSpawn(character)
 				end
 
-				task.wait(0.5)
+				task.wait(0.25)
 			end
 		end)
 	end)
@@ -106,7 +103,6 @@ function PlayerSpawnService:SetupPlayer(player)
 		end)
 	else
 		task.defer(function()
-			print(string.format("[PlayerSpawnService] Loading character: %s", player.Name))
 			player:LoadCharacter()
 		end)
 	end
@@ -115,60 +111,97 @@ function PlayerSpawnService:SetupPlayer(player)
 end
 
 function PlayerSpawnService:Init()
+	Workspace.FallenPartsDestroyHeight = -100000
+	print("[PlayerSpawnService] FallenPartsDestroyHeight disabled for demo")
+
 	Players.CharacterAutoLoads = false
 	print("[PlayerSpawnService] CharacterAutoLoads disabled")
 
-	local runtimeFolder = RuntimeService:GetOrCreateRuntimeFolder()
-	local playerSpawnFolder = ensureFolder(runtimeFolder, "PlayerSpawn")
+	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
+	if not demoRoot then
+		demoRoot = Instance.new("Folder")
+		demoRoot.Name = "DemoPlayerSpawnRoot"
+		demoRoot.Parent = Workspace
+	end
 
-	local spawnPlatformPosition = Vector3.new(0, 8, 0)
-
-	local demoSpawnPlatform = playerSpawnFolder:FindFirstChild("DemoSpawnPlatform")
+	local demoSpawnPlatform = demoRoot:FindFirstChild("DemoSpawnPlatform")
 	if not demoSpawnPlatform then
 		demoSpawnPlatform = createPart(
-			playerSpawnFolder,
+			demoRoot,
 			"DemoSpawnPlatform",
-			Vector3.new(80, 4, 80),
-			spawnPlatformPosition,
+			Vector3.new(120, 6, 120),
+			Vector3.new(0, 20, 0),
+			Color3.fromRGB(80, 120, 90),
 			0,
-			Enum.Material.SmoothPlastic
+			Enum.Material.Concrete,
+			true
 		)
 	end
 
-	local spawnLocationPosition = Vector3.new(0, 14, 0)
-	local demoSpawnLocation = playerSpawnFolder:FindFirstChild("DemoSpawnLocation")
+	local demoSpawnLocation = demoRoot:FindFirstChild("DemoSpawnLocation")
 	if not demoSpawnLocation then
 		demoSpawnLocation = Instance.new("SpawnLocation")
 		demoSpawnLocation.Name = "DemoSpawnLocation"
 		demoSpawnLocation.Shape = Enum.PartType.Block
-		demoSpawnLocation.Size = Vector3.new(16, 1, 16)
-		demoSpawnLocation.Position = spawnLocationPosition
+		demoSpawnLocation.Size = Vector3.new(20, 2, 20)
+		demoSpawnLocation.Position = Vector3.new(0, 27, 0)
+		demoSpawnLocation.Color = Color3.fromRGB(60, 180, 80)
 		demoSpawnLocation.Anchored = true
 		demoSpawnLocation.CanCollide = true
 		demoSpawnLocation.TopSurface = Enum.SurfaceType.Smooth
 		demoSpawnLocation.BottomSurface = Enum.SurfaceType.Smooth
-		demoSpawnLocation.Transparency = 0.3
+		demoSpawnLocation.Transparency = 0
 		demoSpawnLocation.Material = Enum.Material.SmoothPlastic
 		demoSpawnLocation.Neutral = true
 		demoSpawnLocation.AllowTeamChangeOnTouch = false
 		demoSpawnLocation.Enabled = true
 		demoSpawnLocation.Duration = 0
-		demoSpawnLocation.Parent = playerSpawnFolder
+		demoSpawnLocation.Parent = demoRoot
 	end
 
-	local safetyFloor = playerSpawnFolder:FindFirstChild("DemoSafetyFloor")
-	if not safetyFloor then
-		safetyFloor = createPart(
-			playerSpawnFolder,
+	local demoSafetyFloor = demoRoot:FindFirstChild("DemoSafetyFloor")
+	if not demoSafetyFloor then
+		demoSafetyFloor = createPart(
+			demoRoot,
 			"DemoSafetyFloor",
-			Vector3.new(500, 4, 500),
-			Vector3.new(0, -20, 0),
-			1,
-			Enum.Material.SmoothPlastic
+			Vector3.new(1000, 8, 1000),
+			Vector3.new(0, -50, 0),
+			Color3.fromRGB(120, 40, 40),
+			0.5,
+			Enum.Material.SmoothPlastic,
+			true
 		)
 	end
 
-	self.spawnCFrame = CFrame.new(spawnLocationPosition + Vector3.new(0, 8, 0))
+	local demoCameraTarget = demoRoot:FindFirstChild("DemoCameraTarget")
+	if not demoCameraTarget then
+		demoCameraTarget = createPart(
+			demoRoot,
+			"DemoCameraTarget",
+			Vector3.new(6, 6, 6),
+			Vector3.new(0, 35, 0),
+			Color3.fromRGB(255, 220, 80),
+			0.2,
+			Enum.Material.SmoothPlastic,
+			false
+		)
+	end
+
+	local demoDebugPole = demoRoot:FindFirstChild("DemoDebugPole")
+	if not demoDebugPole then
+		demoDebugPole = createPart(
+			demoRoot,
+			"DemoDebugPole",
+			Vector3.new(2, 80, 2),
+			Vector3.new(20, 60, 0),
+			Color3.fromRGB(255, 0, 0),
+			0,
+			Enum.Material.SmoothPlastic,
+			false
+		)
+	end
+
+	self.spawnCFrame = CFrame.new(Vector3.new(0, 35, 0))
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		self:SetupPlayer(player)
