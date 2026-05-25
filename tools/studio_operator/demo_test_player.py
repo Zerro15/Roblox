@@ -24,7 +24,14 @@ from process_manager import is_process_alive, list_relevant_processes, start_pro
 from roblox_logs import collect_latest_markers
 from screen_recorder import record_screen
 from screenshot import take_screenshot
-from window_focus import get_active_window_title, is_active_studio_window, choose_best_studio_window, focus_window
+from window_focus import (
+	choose_best_studio_window,
+	find_ignored_studio_windows,
+	focus_window,
+	get_active_window_title,
+	is_active_studio_window,
+	is_safe_build_game_window_title,
+)
 
 
 def _log_file(name: str, kind: str) -> Path:
@@ -93,9 +100,27 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 
 def ensure_studio_window_visible(report: dict[str, Any], state: dict[str, Any]) -> bool:
 	best = choose_best_studio_window()
+	ignored_windows = find_ignored_studio_windows()
+	report["ignored_studio_windows"] = [
+		{
+			"title": window["title"],
+			"x": window["left"],
+			"y": window["top"],
+			"width": window["width"],
+			"height": window["height"],
+		}
+		for window in ignored_windows
+	]
 
 	studio_window_before = None
 	if best:
+		report["selected_studio_window_title"] = best["title"]
+		report["selected_studio_window_rect"] = {
+			"x": best["left"],
+			"y": best["top"],
+			"width": best["width"],
+			"height": best["height"],
+		}
 		studio_window_before = {
 			"title": best["title"],
 			"x": best["left"],
@@ -166,6 +191,87 @@ def ensure_studio_window_visible(report: dict[str, Any], state: dict[str, Any]) 
 	return is_visible
 
 
+def is_safe_game_studio_title(title: str) -> bool:
+	if is_safe_build_game_window_title(title):
+		return True
+
+	lowered = title.lower()
+	if "game.rbxlx" not in lowered:
+		return False
+	if "roblox studio" not in lowered:
+		return False
+
+	blocked_tokens = (
+		"autorecovery",
+		"autosaves",
+		"installer",
+		"download and install",
+		"setup",
+		"updater",
+		"browser",
+		"powershell",
+		"claude",
+		"codex",
+		"яндекс",
+	)
+	return not any(token in lowered for token in blocked_tokens)
+
+
+def safe_click_focus_studio_window(report: dict[str, Any]) -> bool:
+	report["click_focus_attempted"] = False
+	report["click_focus_point"] = ""
+	report["click_focus_result"] = False
+	report["active_window_after_click_focus"] = get_active_window_title()
+
+	best = choose_best_studio_window()
+	if not best:
+		report["click_focus_error"] = "No eligible game.rbxlx Roblox Studio window found."
+		return False
+
+	title = best["title"]
+	report["selected_studio_window_title"] = title
+	report["selected_studio_window_rect"] = {
+		"x": best["left"],
+		"y": best["top"],
+		"width": best["width"],
+		"height": best["height"],
+	}
+
+	if not is_safe_game_studio_title(title):
+		report["click_focus_error"] = "Selected window title is not a safe game.rbxlx Roblox Studio window."
+		return False
+
+	focus_window(best["window"])
+	time.sleep(1)
+
+	x = best["left"] + best["width"] // 2
+	y = best["top"] + min(200, best["height"] // 2)
+	report["click_focus_attempted"] = True
+	report["click_focus_point"] = f"{x},{y}"
+
+	try:
+		pyautogui.click(x, y)
+	except Exception as exc:  # noqa: BLE001
+		report["click_focus_error"] = str(exc)
+		report["active_window_after_click_focus"] = get_active_window_title()
+		return False
+
+	time.sleep(1)
+	report["active_window_after_click_focus"] = get_active_window_title()
+	active_title = report["active_window_after_click_focus"].lower()
+	report["click_focus_result"] = is_active_studio_window() or "robloxstudio" in active_title or "roblox studio" in active_title
+	return report["click_focus_result"]
+
+
+def wait_for_studio_focus(timeout_seconds: int = 30) -> bool:
+	deadline = time.time() + timeout_seconds
+	while time.time() < deadline:
+		if is_active_studio_window():
+			return True
+		time.sleep(0.5)
+	return False
+
+
 def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 	report_path = LOGS_DIR / "demo_test_report.md"
 	lines = [
@@ -180,6 +286,12 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- auto-play enabled: `{report.get('auto_play_enabled', False)}`",
 		f"- auto-play mode: `{report.get('auto_play_mode', 'safe')}`",
 		f"- auto-play status: `{report.get('auto_play_status', 'AUTO_PLAY_DISABLED')}`",
+		f"- selected studio window title: `{report.get('selected_studio_window_title', '')}`",
+		f"- selected studio window rect: `{report.get('selected_studio_window_rect', '')}`",
+		f"- click focus attempted: `{report.get('click_focus_attempted', False)}`",
+		f"- click focus point: `{report.get('click_focus_point', '')}`",
+		f"- click focus result: `{report.get('click_focus_result', False)}`",
+		f"- active window after click focus: `{report.get('active_window_after_click_focus', '')}`",
 		f"- active window before auto-play: `{report.get('active_window_before_auto_play', '')}`",
 		f"- active window after auto-play: `{report.get('active_window_after_auto_play', '')}`",
 		f"- was F5 pressed: `{report.get('f5_pressed', False)}`",
@@ -250,6 +362,12 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 
 	lines.append(f"- visible: `{studio_visible}`")
 	lines.append(f"- status: `{studio_status}`")
+
+	lines.extend(["", "## Ignored Studio Windows"])
+	for window in report.get("ignored_studio_windows", []):
+		lines.append(f"- `{window['title']}` at ({window['x']}, {window['y']}) size {window['width']}x{window['height']}")
+	if not report.get("ignored_studio_windows"):
+		lines.append("- No ignored Studio-like windows.")
 
 	lines.extend(["", "## Processes"])
 	for proc in report.get("relevant_processes", []):
@@ -329,30 +447,35 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 		if auto_play_mode == "assisted":
 			print("\n" + "="*60)
 			print("ASSISTED AUTO-PLAY")
-			print("Click Roblox Studio window now.")
-			print("The runner will check focus in 5 seconds and press F5 only if Roblox Studio is active.")
-			print("Do not click terminal or browser.")
+			print("The runner will safely focus the selected game.rbxlx Roblox Studio window.")
+			print("Do not use mouse/keyboard during focus attempt.")
 			print("="*60 + "\n")
 
-			for countdown in range(5, 0, -1):
-				print(f"{countdown}")
-				time.sleep(1)
-
 			report["active_window_before_auto_play"] = get_active_window_title()
+			click_focus_ok = safe_click_focus_studio_window(report)
 
-			if is_active_studio_window():
-				print("[Demo] Assisted F5 pressed")
+			if click_focus_ok:
+				print("[Demo] Assisted click-focus F5 pressed")
 				pyautogui.press("f5")
 				report["f5_pressed"] = True
-				report["auto_play_status"] = "AUTO_PLAY_ASSISTED_F5_PRESSED"
+				report["auto_play_status"] = "AUTO_PLAY_ASSISTED_CLICK_FOCUS_F5_PRESSED"
 				report["active_window_after_auto_play"] = get_active_window_title()
 				time.sleep(4)
 			else:
-				print("[Demo] Assisted auto-play skipped: Studio focus not confirmed")
-				report["f5_pressed"] = False
-				report["auto_play_status"] = "AUTO_PLAY_ASSISTED_FOCUS_NOT_CONFIRMED"
-				report["active_window_after_auto_play"] = get_active_window_title()
-				time.sleep(2)
+				print("[Demo] Click-focus failed. Click Roblox Studio within 30 seconds.")
+				if wait_for_studio_focus(30):
+					print("[Demo] Assisted wait-focus F5 pressed")
+					pyautogui.press("f5")
+					report["f5_pressed"] = True
+					report["auto_play_status"] = "AUTO_PLAY_ASSISTED_WAIT_FOCUS_F5_PRESSED"
+					report["active_window_after_auto_play"] = get_active_window_title()
+					time.sleep(4)
+				else:
+					print("[Demo] Assisted auto-play skipped: Studio focus timed out")
+					report["f5_pressed"] = False
+					report["auto_play_status"] = "AUTO_PLAY_ASSISTED_FOCUS_TIMEOUT"
+					report["active_window_after_auto_play"] = get_active_window_title()
+					time.sleep(2)
 		else:
 			print("\n" + "="*60)
 			print("Auto-play is enabled.")

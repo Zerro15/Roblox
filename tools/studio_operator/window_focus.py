@@ -11,14 +11,34 @@ PRIMARY_KEYWORDS = (
     ".rbxlx",
     "game.rbxlx",
     "new-chat",
+    "build",
 )
 
 DISALLOWED_KEYWORDS = (
+    "autorecovery",
+    "autosaves",
     "installer",
     "download and install",
     "setup",
     "updater",
+    "яндекс",
+    "browser",
+    "powershell",
+    "claude",
+    "codex",
 )
+
+
+def is_safe_build_game_window_title(title: str) -> bool:
+    lowered = title.lower()
+    return "build" in lowered and "game.rbxlx" in lowered and "roblox studio" in lowered
+
+
+def is_disallowed_window_title(title: str) -> bool:
+    lowered = title.lower()
+    if is_safe_build_game_window_title(title):
+        return False
+    return any(keyword in lowered for keyword in DISALLOWED_KEYWORDS)
 
 
 def list_windows() -> list[dict[str, Any]]:
@@ -48,9 +68,20 @@ def find_studio_windows() -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
     for item in list_windows():
         lowered = item["title"].lower()
+        if is_disallowed_window_title(item["title"]):
+            continue
         if any(keyword in lowered for keyword in PRIMARY_KEYWORDS):
             matches.append(item)
     return matches
+
+
+def find_ignored_studio_windows() -> list[dict[str, Any]]:
+    ignored: list[dict[str, Any]] = []
+    for item in list_windows():
+        lowered = item["title"].lower()
+        if any(keyword in lowered for keyword in PRIMARY_KEYWORDS) and is_disallowed_window_title(item["title"]):
+            ignored.append(item)
+    return ignored
 
 
 def _score_window(item: dict[str, Any]) -> tuple[int, int]:
@@ -58,15 +89,23 @@ def _score_window(item: dict[str, Any]) -> tuple[int, int]:
     score = 0
 
     if "game.rbxlx" in title:
+        score += 300
+    if "build" in title:
         score += 200
     if ".rbxlx" in title:
-        score += 150
-    if "new-chat" in title:
         score += 100
+    if "autorecovery" in title:
+        score -= 5000
+    if "autosaves" in title:
+        score -= 5000
+    if "installer" in title:
+        score -= 5000
+    if is_disallowed_window_title(item["title"]):
+        score -= 5000
     if "roblox studio" in title:
         score += 80
-    if any(keyword in title for keyword in DISALLOWED_KEYWORDS):
-        score -= 5000
+    if "new-chat" in title:
+        score += 40
     if item["left"] <= -30000 or item["top"] <= -30000:
         score -= 200
     if item["isMinimized"]:
@@ -81,7 +120,13 @@ def choose_best_studio_window() -> dict[str, Any] | None:
     if not candidates:
         return None
 
-    ranked = sorted(candidates, key=_score_window, reverse=True)
+    playable_candidates = []
+    for candidate in candidates:
+        title = candidate["title"].lower()
+        if "build" in title and "game.rbxlx" in title and "roblox studio" in title:
+            playable_candidates.append(candidate)
+
+    ranked = sorted(playable_candidates or candidates, key=_score_window, reverse=True)
     return ranked[0]
 
 
@@ -101,7 +146,7 @@ def is_active_studio_window() -> bool:
     title = get_active_window_title().lower()
     if not title:
         return False
-    if any(keyword in title for keyword in DISALLOWED_KEYWORDS):
+    if is_disallowed_window_title(title):
         return False
     has_studio = any(keyword in title for keyword in ("roblox studio", "game.rbxlx", ".rbxlx", "new-chat"))
     has_place = any(keyword in title for keyword in ("game.rbxlx", ".rbxlx"))

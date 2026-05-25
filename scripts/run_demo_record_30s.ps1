@@ -28,7 +28,7 @@ Write-Output ""
 if ($AutoPlay) {
 	if ($Assisted) {
 		Write-Output "Mode: Assisted auto-play"
-		Write-Output "User clicks Roblox Studio, runner presses F5 after focus is confirmed."
+		Write-Output "The runner will try to focus build\game.rbxlx Roblox Studio and press F5 after focus is confirmed."
 	} else {
 		Write-Output "Mode: Safe auto-play"
 		Write-Output "The runner will focus Roblox Studio and press F5 only if Studio focus is confirmed."
@@ -43,7 +43,8 @@ Write-Output "Instructions:"
 Write-Output "1. Close or restore old Roblox Studio windows if they are minimized."
 Write-Output "2. The script will try to restore/maximize Studio."
 if ($AutoPlay -and $Assisted) {
-	Write-Output "3. When countdown starts, click Roblox Studio window."
+	Write-Output "3. Do not touch mouse or keyboard during focus attempt."
+	Write-Output "4. If auto focus fails, click Roblox Studio when prompted."
 } elseif (-not $AutoPlay) {
 	Write-Output "3. When recording starts, click Studio and press Play/F5."
 }
