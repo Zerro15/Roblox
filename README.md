@@ -675,6 +675,30 @@ powershell -ExecutionPolicy Bypass -File .\scripts\studio_force_play.ps1
 Политика безопасности описана в [DEMO_AUTOFIX_POLICY.md](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/docs/team/DEMO_AUTOFIX_POLICY.md). Loop не мержит PR, не удаляет файлы, не делает force push и не коммитит build/logs/videos.
 
 
+## Pipeline Smoke Test
+
+Быстрая проверка инфраструктуры demo/runtime pipeline без запуска Roblox Studio.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\pipeline_smoke_test.ps1
+```
+
+Что проверяет:
+
+- все обязательные файлы (Lua services, scripts, tools)
+- `rojo` доступен и сборка проходит
+- venv и зависимости на месте
+- существуют demo report, marker report, recordings
+- серверные маркеры (`[Server boot]`, `[DemoDiagnostics]`, `[WaveService]`) присутствуют в Roblox logs
+
+Результат: `logs/pipeline_smoke_report.md` с pass/fail статусом, commit info, и инструкциями по ручным шагам.
+
+Если серверные маркеры отсутствуют, это значит что Roblox Studio ещё не выполнила Play mode. Для полной проверки:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1
+```
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.

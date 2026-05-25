@@ -429,7 +429,7 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 
 
 def collect_markers(report: dict[str, Any], state: dict[str, Any]) -> None:
-	marker_report, matched_markers = collect_latest_markers(LOGS_DIR, LOGS_DIR / "roblox_latest_markers.md")
+	marker_report, matched_markers = collect_latest_markers(LOGS_DIR, LOGS_DIR / "roblox_latest_markers.md", max_files=20)
 	add_report(state, str(marker_report), "roblox_latest_markers")
 	report["marker_report_path"] = str(marker_report)
 	report["matched_markers"] = matched_markers

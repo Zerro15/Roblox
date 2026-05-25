@@ -122,7 +122,7 @@ def collect_marker_details(logs_dir: Path, max_files: int = 5, minutes: int = 15
     }
 
 
-def collect_latest_markers(logs_dir: Path, output_path: Path, max_files: int = 5, minutes: int = 15) -> tuple[Path, list[str]]:
+def collect_latest_markers(logs_dir: Path, output_path: Path, max_files: int = 20, minutes: int = 15) -> tuple[Path, list[str]]:
     details = collect_marker_details(logs_dir, max_files=max_files, minutes=minutes)
     lines = ["# Roblox Latest Markers", ""]
 
@@ -175,5 +175,5 @@ if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[2]
     logs_dir = project_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    report_path, _ = collect_latest_markers(logs_dir, logs_dir / "roblox_latest_markers.md")
+    report_path, _ = collect_latest_markers(logs_dir, logs_dir / "roblox_latest_markers.md", max_files=20)
     print(report_path)
