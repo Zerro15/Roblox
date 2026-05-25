@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 
-local services = script:WaitForChild("services")
+local services = script.Parent:WaitForChild("services")
 
 local RuntimeService = require(services:WaitForChild("RuntimeService"))
 local MapService = require(services:WaitForChild("MapService"))

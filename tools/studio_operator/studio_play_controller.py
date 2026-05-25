@@ -9,6 +9,11 @@ from typing import Any
 
 import pyautogui
 
+try:
+    import psutil
+except ImportError:  # pragma: no cover - optional runtime dependency
+    psutil = None
+
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
@@ -24,6 +29,8 @@ SWP_NOSIZE = 0x0001
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
 VK_F5 = 0x74
+GA_ROOT = 2
+KEYEVENTF_KEYUP = 0x0002
 
 DISALLOWED_TOKENS = (
     "autorecovery",
@@ -69,6 +76,38 @@ def _window_pid(hwnd: int) -> int:
     return int(pid.value)
 
 
+def _process_name(pid: int) -> str:
+    if not pid or psutil is None:
+        return ""
+    try:
+        return psutil.Process(pid).name()
+    except (psutil.Error, OSError):
+        return ""
+
+
+def _root_hwnd(hwnd: int) -> int:
+    if not hwnd:
+        return 0
+    root = int(user32.GetAncestor(hwnd, GA_ROOT))
+    return root or int(hwnd)
+
+
+def _window_info(hwnd: int) -> dict[str, Any]:
+    if not hwnd:
+        return {"hwnd": 0, "title": "", "pid": 0, "process_name": "", "rect": {}, "root_hwnd": 0, "root_title": ""}
+    pid = _window_pid(hwnd)
+    root = _root_hwnd(hwnd)
+    return {
+        "hwnd": int(hwnd),
+        "title": _window_text(hwnd),
+        "pid": pid,
+        "process_name": _process_name(pid),
+        "rect": _window_rect(hwnd),
+        "root_hwnd": root,
+        "root_title": _window_text(root) if root else "",
+    }
+
+
 def _is_disallowed_title(title: str) -> bool:
     lowered = title.lower()
     is_target = "game.rbxlx" in lowered and "roblox studio" in lowered
@@ -102,6 +141,9 @@ def list_windows() -> list[dict[str, Any]]:
                 "title": title,
                 "rect": rect,
                 "pid": _window_pid(hwnd),
+                "process_name": _process_name(_window_pid(hwnd)),
+                "root_hwnd": _root_hwnd(hwnd),
+                "root_title": _window_text(_root_hwnd(hwnd)),
             }
         )
         return True
@@ -110,7 +152,7 @@ def list_windows() -> list[dict[str, Any]]:
     return windows
 
 
-def _score_window(window: dict[str, Any]) -> tuple[int, int]:
+def _score_window(window: dict[str, Any]) -> tuple[int, int, int]:
     title = window["title"].lower()
     score = 0
     if "game.rbxlx" in title:
@@ -125,7 +167,7 @@ def _score_window(window: dict[str, Any]) -> tuple[int, int]:
         score -= 5000
     rect = window["rect"]
     area = max(rect["width"], 0) * max(rect["height"], 0)
-    return score, area
+    return score, area, int(window.get("pid", 0))
 
 
 def find_target_studio_window() -> dict[str, Any] | None:
@@ -137,51 +179,65 @@ def find_target_studio_window() -> dict[str, Any] | None:
 
 def get_foreground_window_info() -> dict[str, Any]:
     hwnd = int(user32.GetForegroundWindow())
-    if not hwnd:
-        return {"hwnd": 0, "title": "", "pid": 0, "rect": {}}
+    return _window_info(hwnd)
+
+
+def _foreground_confirmation(selected: dict[str, Any]) -> dict[str, Any]:
+    foreground = get_foreground_window_info()
+    selected_hwnd = int(selected.get("hwnd", 0))
+    selected_pid = int(selected.get("pid", 0))
+    selected_root_hwnd = int(selected.get("root_hwnd", 0))
+
+    checks = {
+        "hwnd_match": foreground.get("hwnd") == selected_hwnd,
+        "pid_match": bool(selected_pid and foreground.get("pid") == selected_pid),
+        "root_hwnd_match": bool(selected_root_hwnd and foreground.get("root_hwnd") == selected_root_hwnd),
+        "target_title_match": _is_target_title(foreground.get("title", "")),
+    }
+    reason = "none"
+    for key, passed in checks.items():
+        if passed:
+            reason = key
+            break
     return {
-        "hwnd": hwnd,
-        "title": _window_text(hwnd),
-        "pid": _window_pid(hwnd),
-        "rect": _window_rect(hwnd),
+        "foreground": foreground,
+        "confirmed": any(checks.values()),
+        "reason": reason,
+        "checks": checks,
     }
 
 
-def _is_foreground_target(hwnd: int) -> bool:
-    foreground = get_foreground_window_info()
-    if foreground["hwnd"] == int(hwnd):
-        return True
-    return _is_target_title(foreground.get("title", ""))
-
-
 def force_foreground(hwnd: int) -> dict[str, Any]:
+    selected = _window_info(hwnd)
     before = get_foreground_window_info()
     errors: list[str] = []
+    root_hwnd = int(selected.get("root_hwnd", 0)) or int(hwnd)
 
     try:
-        user32.ShowWindow(hwnd, SW_RESTORE)
-        user32.ShowWindow(hwnd, SW_SHOW)
-        user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
-        user32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
-        user32.BringWindowToTop(hwnd)
-        user32.SetForegroundWindow(hwnd)
+        for candidate_hwnd in dict.fromkeys([root_hwnd, int(hwnd)]):
+            user32.ShowWindow(candidate_hwnd, SW_RESTORE)
+            user32.ShowWindow(candidate_hwnd, SW_SHOW)
+            user32.SetWindowPos(candidate_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
+            user32.SetWindowPos(candidate_hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
+            user32.BringWindowToTop(candidate_hwnd)
+            user32.SetForegroundWindow(candidate_hwnd)
         time.sleep(0.5)
     except Exception as exc:  # noqa: BLE001
         errors.append(str(exc))
 
-    if not _is_foreground_target(hwnd):
+    if not _foreground_confirmation(selected)["confirmed"]:
         try:
             foreground_hwnd = int(user32.GetForegroundWindow())
             current_thread_id = int(kernel32.GetCurrentThreadId())
-            target_thread_id = int(user32.GetWindowThreadProcessId(hwnd, None))
+            target_thread_id = int(user32.GetWindowThreadProcessId(root_hwnd, None))
             foreground_thread_id = int(user32.GetWindowThreadProcessId(foreground_hwnd, None)) if foreground_hwnd else 0
 
             if foreground_thread_id:
                 user32.AttachThreadInput(current_thread_id, foreground_thread_id, True)
             user32.AttachThreadInput(current_thread_id, target_thread_id, True)
-            user32.BringWindowToTop(hwnd)
-            user32.SetForegroundWindow(hwnd)
-            user32.SetFocus(hwnd)
+            user32.BringWindowToTop(root_hwnd)
+            user32.SetForegroundWindow(root_hwnd)
+            user32.SetFocus(root_hwnd)
             time.sleep(0.5)
             user32.AttachThreadInput(current_thread_id, target_thread_id, False)
             if foreground_thread_id:
@@ -190,17 +246,32 @@ def force_foreground(hwnd: int) -> dict[str, Any]:
             errors.append(str(exc))
 
     after = get_foreground_window_info()
+    confirmation = _foreground_confirmation(selected)
     return {
         "foreground_before": before,
         "foreground_after": after,
-        "foreground_confirmed": _is_foreground_target(hwnd),
+        "foreground_confirmed": confirmation["confirmed"],
+        "foreground_confirmation_reason": confirmation["reason"],
+        "foreground_confirmation_checks": confirmation["checks"],
         "errors": errors,
     }
 
 
-def press_f5_foreground() -> bool:
-    pyautogui.press("f5")
-    return True
+def press_f5_foreground() -> dict[str, Any]:
+    result = {
+        "method": "foreground_sendinput_f5",
+        "success": False,
+        "error": "",
+    }
+    try:
+        # keybd_event sends a real foreground keyboard event without relying on mouse coordinates.
+        user32.keybd_event(VK_F5, 0, 0, 0)
+        time.sleep(0.05)
+        user32.keybd_event(VK_F5, 0, KEYEVENTF_KEYUP, 0)
+        result["success"] = True
+    except Exception as exc:  # noqa: BLE001
+        result["error"] = str(exc)
+    return result
 
 
 def send_f5_to_hwnd(hwnd: int) -> dict[str, Any]:
@@ -227,11 +298,19 @@ def force_play() -> dict[str, Any]:
         "selected_hwnd": 0,
         "selected_rect": {},
         "selected_pid": 0,
+        "selected_process_name": "",
+        "selected_root_hwnd": 0,
+        "selected_root_title": "",
         "foreground_before": get_foreground_window_info(),
         "foreground_after": {},
+        "foreground_after_f5": {},
         "foreground_confirmed": False,
+        "foreground_confirmation_reason": "none",
+        "foreground_confirmation_checks": {},
         "f5_method": "skipped",
+        "f5_methods_attempted": [],
         "f5_pressed": False,
+        "f5_sent_to_selected_hwnd": False,
         "error": "",
     }
 
@@ -245,22 +324,30 @@ def force_play() -> dict[str, Any]:
     result["selected_hwnd"] = hwnd
     result["selected_rect"] = target["rect"]
     result["selected_pid"] = target["pid"]
+    result["selected_process_name"] = target.get("process_name", "")
+    result["selected_root_hwnd"] = target.get("root_hwnd", 0)
+    result["selected_root_title"] = target.get("root_title", "")
 
     focus_result = force_foreground(hwnd)
     result.update(focus_result)
 
     if result["foreground_confirmed"]:
-        try:
-            press_f5_foreground()
-            result["f5_method"] = "foreground_pyautogui"
-            result["f5_pressed"] = True
+        foreground_f5 = press_f5_foreground()
+        result["f5_methods_attempted"].append(foreground_f5["method"])
+        result["f5_method"] = foreground_f5["method"]
+        result["f5_pressed"] = bool(foreground_f5["success"])
+        result["f5_sent_to_selected_hwnd"] = bool(foreground_f5["success"])
+        result["foreground_after_f5"] = get_foreground_window_info()
+        if foreground_f5["success"]:
             return result
-        except Exception as exc:  # noqa: BLE001
-            result["error"] = str(exc)
+        result["error"] = foreground_f5["error"]
 
     fallback = send_f5_to_hwnd(hwnd)
+    result["f5_methods_attempted"].append(fallback["method"])
     result["f5_method"] = fallback["method"]
     result["f5_pressed"] = bool(fallback["success"])
+    result["f5_sent_to_selected_hwnd"] = bool(fallback["success"])
+    result["foreground_after_f5"] = get_foreground_window_info()
     if fallback["error"]:
         result["error"] = fallback["error"]
     return result
@@ -287,8 +374,10 @@ def main() -> int:
         foreground = get_foreground_window_info()
         payload = {"foreground": foreground, "f5_pressed": False, "error": ""}
         if _is_target_title(foreground.get("title", "")):
-            payload["f5_pressed"] = press_f5_foreground()
-            payload["f5_method"] = "foreground_pyautogui"
+            f5_result = press_f5_foreground()
+            payload["f5_pressed"] = f5_result["success"]
+            payload["f5_method"] = f5_result["method"]
+            payload["error"] = f5_result["error"]
         else:
             payload["error"] = "Foreground is not the target Roblox Studio window."
             payload["f5_method"] = "skipped"

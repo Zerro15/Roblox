@@ -69,16 +69,17 @@ local function getPathCenter()
 end
 
 local function resolveLookAt()
+	local pathCenter = getPathCenter()
+	if pathCenter then
+		warn("[Client] Demo camera path center found")
+		return pathCenter + Vector3.new(0, 10, 0)
+	end
+
 	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
 	local demoCameraTarget = demoRoot and demoRoot:FindFirstChild("DemoCameraTarget")
 	if demoCameraTarget and demoCameraTarget:IsA("BasePart") then
 		warn("[Client] Demo camera target found")
 		return demoCameraTarget.Position
-	end
-
-	local pathCenter = getPathCenter()
-	if pathCenter then
-		return pathCenter
 	end
 
 	warn("[Client] Demo camera fallback lookAt used")
@@ -89,7 +90,7 @@ local function setupDemoCamera()
 	warn("[Client] Demo spectator camera starting")
 
 	local camera = Workspace.CurrentCamera
-	local cameraPosition = Vector3.new(-100, 110, -100)
+	local cameraPosition = Vector3.new(-120, 130, -120)
 
 	for _ = 1, 40 do
 		local lookAt = resolveLookAt()

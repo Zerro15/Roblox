@@ -48,13 +48,14 @@ def start_process_once(
     cwd: Path,
     stdout_path: Path | None = None,
     stderr_path: Path | None = None,
+    force_new: bool = False,
 ) -> int | None:
     field_name = f"{name}_pid"
     existing_pid = state.get(field_name)
-    if is_process_alive(existing_pid):
+    if not force_new and is_process_alive(existing_pid):
         return existing_pid
 
-    if name == "studio":
+    if name == "studio" and not force_new:
         for proc in psutil.process_iter(["name", "cmdline", "exe"]):
             try:
                 proc_name = (proc.info.get("name") or "").lower()

@@ -27,6 +27,7 @@ PROJECT_MARKERS = [
     "[Client] Demo spectator",
     "[Client] Demo spectator camera activated",
     "[Client] Demo camera target found",
+    "[Client] Demo camera path center found",
     "[RuntimeService]",
     "[MapService]",
     "[PathService]",
@@ -44,6 +45,19 @@ DIAGNOSTIC_MARKERS = [
 
 MARKERS = PROJECT_MARKERS + DIAGNOSTIC_MARKERS
 
+EXPECTED_RUNTIME_MARKERS = [
+    "[Server boot]",
+    "[DemoDiagnostics] Init",
+    "[DemoDiagnostics] ServerBootBeacon marked",
+    "[Main] Demo runtime server boot confirmed",
+    "[Main] Demo spectator spawn ready",
+    "[Main] Demo map build requested",
+    "[Main] Demo wave loop requested",
+    "[WaveService]",
+    "[TowerService]",
+    "[EnemyService]",
+]
+
 
 def find_roblox_log_dirs() -> list[Path]:
     candidates = [
@@ -52,7 +66,7 @@ def find_roblox_log_dirs() -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
-def _read_tail(path: Path, max_lines: int = 2500) -> list[str]:
+def _read_tail(path: Path, max_lines: int = 20000) -> list[str]:
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -109,19 +123,45 @@ def collect_marker_details(logs_dir: Path, max_files: int = 5, minutes: int = 15
             }
         )
 
+    server_markers_observed = any(
+        marker in project_markers
+        for marker in (
+            "[Server boot]",
+            "[DemoDiagnostics] Init",
+            "[RuntimeService]",
+            "[MapService]",
+            "[WaveService]",
+            "[TowerService]",
+            "[EnemyService]",
+        )
+    )
+    client_markers_observed = any(marker.startswith("[Client]") or marker == "[Client boot]" for marker in project_markers)
+    if server_markers_observed and client_markers_observed:
+        runtime_diagnosis = "server and client runtime markers observed in automated Studio run"
+    elif server_markers_observed:
+        runtime_diagnosis = "server runtime markers observed in automated Studio run"
+    elif client_markers_observed:
+        runtime_diagnosis = "client runtime markers observed; server markers not observed in automated Studio run"
+    else:
+        runtime_diagnosis = "server markers not observed in automated Studio run"
+
     return {
         "log_dirs": [str(path) for path in log_dirs],
         "checked_files": checked_files,
         "matched_markers": matched_markers,
         "project_markers": project_markers,
         "project_markers_count": len(project_markers),
+        "missing_expected_markers": [
+            marker for marker in EXPECTED_RUNTIME_MARKERS if marker not in project_markers
+        ],
+        "runtime_diagnosis": runtime_diagnosis,
         "grouped_matches": grouped_matches,
         "minutes": minutes,
         "max_files": max_files,
     }
 
 
-def collect_latest_markers(logs_dir: Path, output_path: Path, max_files: int = 5, minutes: int = 15) -> tuple[Path, list[str]]:
+def collect_latest_markers(logs_dir: Path, output_path: Path, max_files: int = 20, minutes: int = 15) -> tuple[Path, list[str]]:
     details = collect_marker_details(logs_dir, max_files=max_files, minutes=minutes)
     lines = ["# Roblox Latest Markers", ""]
 
@@ -146,11 +186,19 @@ def collect_latest_markers(logs_dir: Path, output_path: Path, max_files: int = 5
 
         lines.extend(["", "## Project Runtime Marker Summary"])
         lines.append(f"- project markers found: `{details['project_markers_count']}`")
+        lines.append(f"- diagnosis: `{details['runtime_diagnosis']}`")
         if details["project_markers"]:
             for marker in details["project_markers"]:
                 lines.append(f"- `{marker}`")
         else:
-            lines.append("- No project runtime markers found. Possible causes: Play did not start, logs are in another file, server script failed before print, or wrong place opened.")
+            lines.append("- No project runtime markers found. Server markers are not currently observed in the automated Studio run.")
+
+        lines.extend(["", "## Missing Expected Runtime Markers"])
+        if details["missing_expected_markers"]:
+            for marker in details["missing_expected_markers"]:
+                lines.append(f"- `{marker}`")
+        else:
+            lines.append("- No expected runtime markers missing.")
 
         lines.extend(["", "## Matches By File"])
         for group in details["grouped_matches"]:
@@ -174,5 +222,5 @@ if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[2]
     logs_dir = project_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    report_path, _ = collect_latest_markers(logs_dir, logs_dir / "roblox_latest_markers.md")
+    report_path, _ = collect_latest_markers(logs_dir, logs_dir / "roblox_latest_markers.md", max_files=20)
     print(report_path)

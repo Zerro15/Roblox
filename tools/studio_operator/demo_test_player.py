@@ -62,6 +62,7 @@ def build_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 	report["build_path"] = str(place_path)
 	report["build_status"] = "ok" if ok and place_path.exists() else "failed"
 	state["last_build_path"] = str(place_path) if place_path.exists() else None
+	state["last_build_mtime"] = place_path.stat().st_mtime if place_path.exists() else None
 	return report["build_status"] == "ok"
 
 
@@ -75,15 +76,19 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 		report["open_status"] = "failed"
 		return False
 
-	if is_process_alive(state.get("studio_pid")):
+	if is_process_alive(state.get("studio_pid")) and state.get("studio_loaded_build_mtime") == state.get("last_build_mtime"):
 		report["open_status"] = "already_open"
 		return True
 
+	existing_place_windows = []
 	for window in find_windows():
 		title = window["title"].lower()
 		if "game.rbxlx" in title or ".rbxlx" in title:
-			report["open_status"] = "already_open_foreign"
-			return True
+			existing_place_windows.append(window["title"])
+
+	if existing_place_windows:
+		report["existing_place_windows"] = existing_place_windows
+		report["open_note"] = "Fresh build opened because existing Studio windows may contain stale in-memory place data."
 
 	launch_command = [str(studio_path), str(place_path)]
 	pid = start_process_once(
@@ -93,8 +98,11 @@ def open_built_place(report: dict[str, Any], state: dict[str, Any]) -> bool:
 		PROJECT_ROOT,
 		stdout_path=_log_file("demo_studio_runtime", "stdout"),
 		stderr_path=_log_file("demo_studio_runtime", "stderr"),
+		force_new=True,
 	)
 	report["studio_pid"] = pid
+	state["studio_pid"] = pid
+	state["studio_loaded_build_mtime"] = state.get("last_build_mtime")
 	report["open_status"] = "started"
 	time.sleep(18)
 	return True
@@ -309,9 +317,38 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		"",
 		"## Studio Play Controller",
 		f"- selected title: `{report.get('studio_play_controller', {}).get('selected_title', '')}`",
+		f"- selected hwnd: `{report.get('studio_play_controller', {}).get('selected_hwnd', 0)}`",
+		f"- selected pid: `{report.get('studio_play_controller', {}).get('selected_pid', 0)}`",
+		f"- selected process name: `{report.get('studio_play_controller', {}).get('selected_process_name', '')}`",
+		f"- selected root hwnd: `{report.get('studio_play_controller', {}).get('selected_root_hwnd', 0)}`",
+		f"- selected root title: `{report.get('studio_play_controller', {}).get('selected_root_title', '')}`",
+		f"- selected rect: `{report.get('studio_play_controller', {}).get('selected_rect', {})}`",
+		f"- foreground before hwnd: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('hwnd', 0)}`",
+		f"- foreground before title: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('title', '')}`",
+		f"- foreground before pid: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('pid', 0)}`",
+		f"- foreground before process name: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('process_name', '')}`",
+		f"- foreground before root hwnd: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('root_hwnd', 0)}`",
+		f"- foreground before root title: `{report.get('studio_play_controller', {}).get('foreground_before', {}).get('root_title', '')}`",
+		f"- foreground after hwnd: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('hwnd', 0)}`",
+		f"- foreground after title: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('title', '')}`",
+		f"- foreground after pid: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('pid', 0)}`",
+		f"- foreground after process name: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('process_name', '')}`",
+		f"- foreground after root hwnd: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('root_hwnd', 0)}`",
+		f"- foreground after root title: `{report.get('studio_play_controller', {}).get('foreground_after', {}).get('root_title', '')}`",
+		f"- foreground after F5 hwnd: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('hwnd', 0)}`",
+		f"- foreground after F5 title: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('title', '')}`",
+		f"- foreground after F5 pid: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('pid', 0)}`",
+		f"- foreground after F5 process name: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('process_name', '')}`",
+		f"- foreground after F5 root hwnd: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('root_hwnd', 0)}`",
+		f"- foreground after F5 root title: `{report.get('studio_play_controller', {}).get('foreground_after_f5', {}).get('root_title', '')}`",
 		f"- foreground confirmed: `{report.get('studio_play_controller', {}).get('foreground_confirmed', False)}`",
+		f"- foreground confirmation reason: `{report.get('studio_play_controller', {}).get('foreground_confirmation_reason', 'none')}`",
+		f"- foreground confirmation checks: `{report.get('studio_play_controller', {}).get('foreground_confirmation_checks', {})}`",
 		f"- f5 method: `{report.get('studio_play_controller', {}).get('f5_method', '')}`",
-		f"- f5 pressed: `{report.get('studio_play_controller', {}).get('f5_pressed', False)}`",
+		f"- f5 methods attempted: `{', '.join(report.get('studio_play_controller', {}).get('f5_methods_attempted', []))}`",
+		f"- f5 sent: `{report.get('studio_play_controller', {}).get('f5_pressed', False)}`",
+		f"- f5 sent to selected hwnd: `{report.get('studio_play_controller', {}).get('f5_sent_to_selected_hwnd', False)}`",
+		f"- play confirmation evidence: `{report.get('play_confirmation_evidence', 'runtime markers required')}`",
 		f"- error: `{report.get('studio_play_controller', {}).get('error', '')}`",
 		"",
 		"## Expected Visual Runtime Beacons",
@@ -421,7 +458,7 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 
 
 def collect_markers(report: dict[str, Any], state: dict[str, Any]) -> None:
-	marker_report, matched_markers = collect_latest_markers(LOGS_DIR, LOGS_DIR / "roblox_latest_markers.md")
+	marker_report, matched_markers = collect_latest_markers(LOGS_DIR, LOGS_DIR / "roblox_latest_markers.md", max_files=20)
 	add_report(state, str(marker_report), "roblox_latest_markers")
 	report["marker_report_path"] = str(marker_report)
 	report["matched_markers"] = matched_markers
@@ -456,16 +493,26 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 			return "STUDIO_FOREGROUND_BLOCKED"
 		return "F5_NOT_PRESSED"
 
+	if "FOREGROUND_NOT_CONFIRMED" in str(report.get("auto_play_status", "")):
+		return "PLAY_NOT_CONFIRMED"
+
 	matched = report.get("matched_markers", [])
 	project_markers_count = int(report.get("project_markers_count", 0))
+	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
+	diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in matched)
+	client_camera_confirmed = "[Client] Demo spectator camera activated" in matched
 	if report.get("f5_pressed") and project_markers_count == 0:
 		return "RUNTIME_MARKERS_NOT_CAPTURED"
 
 	if 0 < project_markers_count < 3:
 		return "PARTIAL_RUNTIME_CONFIRMED"
 
-	if "[DemoDiagnostics] WaveLoopBeacon marked" not in matched and project_markers_count >= 3:
+	if project_markers_count >= 3 and (not gameplay_confirmed or not diagnostics_confirmed or not client_camera_confirmed):
 		return "PARTIAL_RUNTIME_CONFIRMED"
+
+	server_confirmed = "[Server boot]" in matched or "[DemoDiagnostics] ServerBootBeacon marked" in matched
+	if project_markers_count >= 3 and gameplay_confirmed and diagnostics_confirmed and client_camera_confirmed and server_confirmed:
+		return "OK"
 
 	if "[Server boot]" not in matched and "[DemoDiagnostics] ServerBootBeacon marked" not in matched:
 		return "SERVER_BOOT_NOT_FOUND"
@@ -494,12 +541,14 @@ def evaluate_success_criteria(report: dict[str, Any]) -> bool:
 		"[Client] Demo spectator camera activated",
 	]
 	marker_hits = sum(1 for marker in required_markers if marker in matched)
+	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
 	return (
 		report.get("build_status") == "ok"
 		and bool(report.get("recording_path"))
 		and report.get("f5_pressed") is True
 		and "F5_PRESSED" in str(report.get("auto_play_status", ""))
 		and marker_hits >= 3
+		and gameplay_confirmed
 		and int(report.get("video_score", 0)) >= 3
 	)
 
@@ -511,10 +560,11 @@ def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
 		"FOCUS_FAILED": "Retry safe click-focus and inspect selected_studio_window_title.",
 		"F5_NOT_PRESSED": "Use assisted click-focus mode or manually focus Studio during fallback wait.",
 		"STUDIO_FOREGROUND_BLOCKED": "Close browser/extra Studio windows or run PowerShell as normal user, not admin.",
+		"PLAY_NOT_CONFIRMED": "F5 was sent to the selected Studio window, but foreground/runtime evidence did not confirm Play mode.",
 		"WRONG_STUDIO_WINDOW": "Close AutoRecovery/Installer windows so build/game.rbxlx is selected.",
 		"ONLY_WARN_ERROR_MARKERS": "Inspect expanded roblox_latest_markers.md checked files; Play may not have started runtime or logs may be elsewhere.",
 		"PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "Open Studio Output and check whether server/client scripts ran after F5.",
-		"RUNTIME_MARKERS_NOT_CAPTURED": "F5/video succeeded, but no warn-based runtime markers were captured. Check Studio Output and whether Play actually entered runtime.",
+		"RUNTIME_MARKERS_NOT_CAPTURED": "F5/video succeeded, but server markers are not currently observed in the automated Studio run. Check Studio Output for [Server boot] and DemoDiagnostics markers.",
 		"PARTIAL_RUNTIME_CONFIRMED": "Some runtime markers were captured; inspect missing DemoDiagnostics beacon markers.",
 		"SERVER_BOOT_NOT_FOUND": "Verify Main.server.lua is mapped into ServerScriptService and prints [Server boot].",
 		"CLIENT_BOOT_NOT_FOUND": "Verify Main.client.lua is mapped into StarterPlayerScripts and prints [Client boot].",
@@ -585,7 +635,10 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 			if controller_result.get("f5_pressed"):
 				print("[Demo] Windows Studio play controller pressed F5")
 				report["f5_pressed"] = True
-				report["auto_play_status"] = "AUTO_PLAY_FORCE_CONTROLLER_F5_PRESSED"
+				if controller_result.get("foreground_confirmed"):
+					report["auto_play_status"] = "AUTO_PLAY_FORCE_CONTROLLER_F5_PRESSED"
+				else:
+					report["auto_play_status"] = "AUTO_PLAY_FORCE_CONTROLLER_F5_SENT_FOREGROUND_NOT_CONFIRMED"
 				report["active_window_after_auto_play"] = get_active_window_title()
 				time.sleep(4)
 			else:
@@ -790,7 +843,7 @@ def main() -> int:
 		gameplay_hits = sum(1 for marker in gameplay_loop_markers if marker in matched)
 		diagnostic_hits = sum(1 for marker in diagnostic_beacon_markers if marker in matched)
 
-		if diagnostic_hits >= 5 or project_markers_count >= 5:
+		if (diagnostic_hits >= 3 or project_markers_count >= 3) and gameplay_hits > 0:
 			report["play_status"] = "DEMO_RECORDED_RUNTIME_DIAGNOSTICS_CONFIRMED"
 			report["video_score"] = 4
 		elif diagnostic_hits >= 3 or project_markers_count >= 3:
@@ -818,6 +871,10 @@ def main() -> int:
 	report["diagnosis"] = diagnose_demo_report(report)
 	report["success_criteria_passed"] = evaluate_success_criteria(report)
 	report["possible_next_fix"] = possible_next_fix_for_diagnosis(report["diagnosis"])
+	if report.get("project_markers_count", 0) > 0:
+		report["play_confirmation_evidence"] = "project runtime markers found in Roblox logs"
+	else:
+		report["play_confirmation_evidence"] = "no project runtime markers found after F5/send-key attempt"
 	report["windows"] = find_windows()
 	report["relevant_processes"] = list_relevant_processes()
 	state["last_active_window"] = get_active_window_title()

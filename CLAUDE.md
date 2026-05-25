@@ -6,6 +6,15 @@ This document defines how Claude integrates with the Roblox Tower Defense protot
 
 **Current Status:** Claude is the primary development agent (Codex CLI pending)
 
+**Project-Local Skills:** New `.claude/skills/` directory contains specialized skills for this project:
+- `roblox-demo-pipeline/SKILL.md` — Demo automation, video recording, marker collection
+- `token-saver-code-agent/SKILL.md` — Token optimization, efficient file reading
+- `safe-git-review/SKILL.md` — Pre-commit review, file classification, safe staging
+
+**Project-Local Commands:** New `.claude/commands/` directory contains quick-start commands:
+- `continue-demo.md` — Resume demo/video verification pipeline
+- `precommit-review.md` — Pre-commit safety review before staging
+
 ---
 
 ## Core Workflow: Plan → Implement → Test → Merge

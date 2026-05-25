@@ -88,6 +88,7 @@ function TowerService:StartTowerCombat(tower)
 
 	tower:SetAttribute("IsAttacking", true)
 	print(string.format("[TowerService] Tower started combat: %s", tower.Name))
+	warn(string.format("[TowerService] Runtime marker: Tower started combat: %s", tower.Name))
 
 	task.spawn(function()
 		while tower and tower.Parent do
@@ -97,10 +98,12 @@ function TowerService:StartTowerCombat(tower)
 
 			if enemy then
 				print(string.format("[TowerService] Target acquired: %s -> %s", tower.Name, enemy.Name))
+				warn(string.format("[TowerService] Runtime marker: Target acquired: %s -> %s", tower.Name, enemy.Name))
 				local damage = tower:GetAttribute("Damage") or 0
 				local result = EnemyService:DamageEnemy(enemy, damage, tower.Name)
 				if result and result.damaged then
 					print(string.format("[TowerService] Attacked enemy %s with %s", enemy.Name, tower.Name))
+					warn(string.format("[TowerService] Runtime marker: Attacked enemy %s with %s", enemy.Name, tower.Name))
 					self:CreateDebugAttackBeam(tower, enemy)
 
 					if result.defeated == true then
@@ -173,6 +176,7 @@ function TowerService:PlaceTower(towerType, position)
 	self.activeTowers[getTowerKey(tower)] = tower
 
 	print(string.format("[TowerService] Tower placed: %s (cost: %d)", tower.Name, cost))
+	warn(string.format("[TowerService] Runtime marker: Tower placed: %s", tower.Name))
 
 	return tower
 end
@@ -184,6 +188,7 @@ function TowerService:Init()
 	end
 
 	print(string.format("[TowerService] Loaded %d tower definitions", count))
+	warn(string.format("[TowerService] Runtime marker: Loaded %d tower definitions", count))
 end
 
 return TowerService

@@ -80,6 +80,7 @@ function EnemyService:DamageEnemy(enemy, amount, source)
 		local reward = enemy:GetAttribute("Reward") or 0
 		local enemyName = enemy.Name
 		print("[EnemyService] Enemy defeated: " .. enemyName .. ", reward: " .. tostring(reward))
+		warn("[EnemyService] Runtime marker: Enemy defeated: " .. enemyName)
 		self:CleanupEnemy(enemy)
 		return {
 			damaged = true,
@@ -91,6 +92,7 @@ function EnemyService:DamageEnemy(enemy, amount, source)
 	end
 
 	print(string.format("[EnemyService] Damaged enemy %s for %s, health: %s", enemy.Name, tostring(amount), tostring(newHealth)))
+	warn(string.format("[EnemyService] Runtime marker: Damaged enemy %s", enemy.Name))
 	return {
 		damaged = true,
 		defeated = false,
@@ -141,6 +143,7 @@ function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
 
 	if self:IsEnemyAlive(enemy) then
 		print("[EnemyService] Enemy reached exit: " .. enemy.Name)
+		warn("[EnemyService] Runtime marker: Enemy reached exit: " .. enemy.Name)
 	end
 	self:CleanupEnemy(enemy)
 end
@@ -182,6 +185,7 @@ function EnemyService:SpawnEnemy(enemyType, position)
 	self.activeEnemies[getEnemyKey(enemy)] = enemy
 
 	print(string.format("[EnemyService] Spawned enemy %s at %.1f, %.1f, %.1f", enemy.Name, enemy.Position.X, enemy.Position.Y, enemy.Position.Z))
+	warn(string.format("[EnemyService] Runtime marker: Spawned enemy %s", enemy.Name))
 
 	return enemy
 end
@@ -193,6 +197,7 @@ function EnemyService:Init()
 	end
 
 	print(string.format("[EnemyService] Loaded %d enemy definitions", count))
+	warn(string.format("[EnemyService] Runtime marker: Loaded %d enemy definitions", count))
 end
 
 return EnemyService

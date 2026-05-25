@@ -28,6 +28,12 @@ SUCCESS_MARKERS = [
     "[Client] Demo spectator camera activated",
 ]
 
+GAMEPLAY_MARKERS = [
+    "[WaveService]",
+    "[TowerService]",
+    "[EnemyService]",
+]
+
 DIAGNOSES = [
     "BUILD_FAILED",
     "STUDIO_WINDOW_NOT_VISIBLE",
@@ -115,6 +121,28 @@ def diagnose() -> dict[str, Any]:
 
     build_status = fields.get("build_status", "not_run")
     selected_title = fields.get("selected_studio_window_title", "")
+    selected_hwnd = fields.get("selected_hwnd", "")
+    selected_pid = fields.get("selected_pid", "")
+    selected_root_hwnd = fields.get("selected_root_hwnd", "")
+    selected_root_title = fields.get("selected_root_title", "")
+    foreground_before_title = fields.get("foreground_before_title", "")
+    foreground_before_pid = fields.get("foreground_before_pid", "")
+    foreground_before_root_hwnd = fields.get("foreground_before_root_hwnd", "")
+    foreground_before_root_title = fields.get("foreground_before_root_title", "")
+    foreground_after_title = fields.get("foreground_after_title", "")
+    foreground_after_pid = fields.get("foreground_after_pid", "")
+    foreground_after_root_hwnd = fields.get("foreground_after_root_hwnd", "")
+    foreground_after_root_title = fields.get("foreground_after_root_title", "")
+    foreground_after_f5_title = fields.get("foreground_after_f5_title", "")
+    foreground_after_f5_pid = fields.get("foreground_after_f5_pid", "")
+    foreground_after_f5_root_hwnd = fields.get("foreground_after_f5_root_hwnd", "")
+    foreground_after_f5_root_title = fields.get("foreground_after_f5_root_title", "")
+    foreground_confirmed = fields.get("foreground_confirmed", "")
+    foreground_confirmation_reason = fields.get("foreground_confirmation_reason", "")
+    f5_method = fields.get("f5_method", "")
+    f5_methods_attempted = fields.get("f5_methods_attempted", "")
+    f5_sent_to_selected_hwnd = fields.get("f5_sent_to_selected_hwnd", "")
+    play_confirmation_evidence = fields.get("play_confirmation_evidence", "")
     f5_pressed = bool_field(fields.get("was_f5_pressed", "false"))
     auto_play_status = fields.get("auto_play_status", "")
     score = int_prefix(fields.get("video_usefulness_score", "0"))
@@ -147,6 +175,28 @@ def diagnose() -> dict[str, Any]:
         "success": success,
         "build_status": build_status,
         "selected_studio_window_title": selected_title,
+        "selected_hwnd": selected_hwnd,
+        "selected_pid": selected_pid,
+        "selected_root_hwnd": selected_root_hwnd,
+        "selected_root_title": selected_root_title,
+        "foreground_before_title": foreground_before_title,
+        "foreground_before_pid": foreground_before_pid,
+        "foreground_before_root_hwnd": foreground_before_root_hwnd,
+        "foreground_before_root_title": foreground_before_root_title,
+        "foreground_after_title": foreground_after_title,
+        "foreground_after_pid": foreground_after_pid,
+        "foreground_after_root_hwnd": foreground_after_root_hwnd,
+        "foreground_after_root_title": foreground_after_root_title,
+        "foreground_after_f5_title": foreground_after_f5_title,
+        "foreground_after_f5_pid": foreground_after_f5_pid,
+        "foreground_after_f5_root_hwnd": foreground_after_f5_root_hwnd,
+        "foreground_after_f5_root_title": foreground_after_f5_root_title,
+        "foreground_confirmed": foreground_confirmed,
+        "foreground_confirmation_reason": foreground_confirmation_reason,
+        "f5_method": f5_method,
+        "f5_methods_attempted": f5_methods_attempted,
+        "f5_sent_to_selected_hwnd": f5_sent_to_selected_hwnd,
+        "play_confirmation_evidence": play_confirmation_evidence,
         "f5_pressed": f5_pressed,
         "auto_play_status": auto_play_status,
         "score": score,
@@ -181,6 +231,8 @@ def classify_failure(
         if "FOCUS_TIMEOUT" in auto_play_status or "FORCE_CONTROLLER_FAILED" in auto_play_status:
             return "STUDIO_FOREGROUND_BLOCKED"
         return "F5_NOT_PRESSED"
+    if "FOREGROUND_NOT_CONFIRMED" in auto_play_status:
+        return "PLAY_NOT_CONFIRMED"
     if "F5_PRESSED" not in auto_play_status:
         return "PLAY_NOT_CONFIRMED"
     if not recording:
@@ -189,10 +241,17 @@ def classify_failure(
         return "VIDEO_TOO_SMALL"
     if project_marker_count == 0:
         return "RUNTIME_MARKERS_NOT_CAPTURED"
+    gameplay_confirmed = any(marker in project_markers for marker in GAMEPLAY_MARKERS)
+    diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in project_markers)
+    client_camera_confirmed = "[Client] Demo spectator camera activated" in project_markers
     if project_marker_count < 3:
         return "PARTIAL_RUNTIME_CONFIRMED"
-    if "[DemoDiagnostics] WaveLoopBeacon marked" not in project_markers:
+    if not gameplay_confirmed:
         return "PARTIAL_RUNTIME_CONFIRMED"
+    if not diagnostics_confirmed or not client_camera_confirmed:
+        return "PARTIAL_RUNTIME_CONFIRMED"
+    if "[Server boot]" in project_markers or "[DemoDiagnostics] ServerBootBeacon marked" in project_markers:
+        return "OK"
     if "[Server boot]" not in project_markers and "[DemoDiagnostics] ServerBootBeacon marked" not in project_markers:
         return "SERVER_BOOT_NOT_FOUND"
     if "[Client boot]" not in project_markers:
@@ -217,12 +276,14 @@ def success_criteria(
     score: int,
 ) -> bool:
     marker_hits = sum(1 for marker in SUCCESS_MARKERS if marker in matched_markers)
+    gameplay_confirmed = any(marker in matched_markers for marker in GAMEPLAY_MARKERS)
     return (
         build_status == "ok"
         and recording is not None
         and f5_pressed
         and "F5_PRESSED" in auto_play_status
         and marker_hits >= 3
+        and gameplay_confirmed
         and score >= 3
     )
 
@@ -234,7 +295,7 @@ def safe_fix_strategy(diagnosis_name: str, attempt: int) -> dict[str, Any]:
         "STUDIO_FOREGROUND_BLOCKED": "Close browser/extra Studio windows or run PowerShell as normal user, not admin.",
         "ONLY_WARN_ERROR_MARKERS": "No gameplay edit applied. Expanded Roblox log aggregation is active; next step is to inspect checked log files and Studio Output.",
         "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "No gameplay edit applied. Runtime may not have started or logs may be in another file.",
-        "RUNTIME_MARKERS_NOT_CAPTURED": "No gameplay edit applied. F5/video succeeded, but warn-based runtime markers were not captured.",
+        "RUNTIME_MARKERS_NOT_CAPTURED": "No gameplay edit applied. F5/video succeeded, but server markers are not currently observed in the automated Studio run.",
         "PARTIAL_RUNTIME_CONFIRMED": "No gameplay edit applied. Some runtime markers were found; inspect which beacon is missing.",
         "SERVER_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.server.lua mapping and [Server boot] print manually.",
         "CLIENT_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.client.lua mapping and [Client boot] print manually.",
@@ -313,6 +374,22 @@ def write_autofix_report(attempts: list[dict[str, Any]], fixes: list[dict[str, A
         f"- score: `{latest.get('score', 0)}/5`",
         f"- f5 pressed: `{latest.get('f5_pressed', False)}`",
         f"- auto-play status: `{latest.get('auto_play_status', '')}`",
+        f"- selected hwnd: `{latest.get('selected_hwnd', '')}`",
+        f"- selected pid: `{latest.get('selected_pid', '')}`",
+        f"- selected root hwnd: `{latest.get('selected_root_hwnd', '')}`",
+        f"- selected root title: `{latest.get('selected_root_title', '')}`",
+        f"- foreground before: `{latest.get('foreground_before_title', '')}`",
+        f"- foreground before pid/root: `{latest.get('foreground_before_pid', '')}` / `{latest.get('foreground_before_root_hwnd', '')}` `{latest.get('foreground_before_root_title', '')}`",
+        f"- foreground after: `{latest.get('foreground_after_title', '')}`",
+        f"- foreground after pid/root: `{latest.get('foreground_after_pid', '')}` / `{latest.get('foreground_after_root_hwnd', '')}` `{latest.get('foreground_after_root_title', '')}`",
+        f"- foreground after F5: `{latest.get('foreground_after_f5_title', '')}`",
+        f"- foreground after F5 pid/root: `{latest.get('foreground_after_f5_pid', '')}` / `{latest.get('foreground_after_f5_root_hwnd', '')}` `{latest.get('foreground_after_f5_root_title', '')}`",
+        f"- foreground confirmed: `{latest.get('foreground_confirmed', '')}`",
+        f"- foreground confirmation reason: `{latest.get('foreground_confirmation_reason', '')}`",
+        f"- f5 method: `{latest.get('f5_method', '')}`",
+        f"- f5 methods attempted: `{latest.get('f5_methods_attempted', '')}`",
+        f"- f5 sent to selected hwnd: `{latest.get('f5_sent_to_selected_hwnd', '')}`",
+        f"- play confirmation evidence: `{latest.get('play_confirmation_evidence', '')}`",
         f"- project markers count: `{latest.get('project_markers_count', 0)}`",
         f"- foreground recovery note: `{safe_fix_strategy(latest.get('diagnosis', 'UNKNOWN_FAILURE'), len(attempts) or 1)['description']}`",
         "",
@@ -334,7 +411,21 @@ def write_autofix_report(attempts: list[dict[str, Any]], fixes: list[dict[str, A
                 f"- success: `{attempt.get('success')}`",
                 f"- build status: `{attempt.get('build_status')}`",
                 f"- selected window: `{attempt.get('selected_studio_window_title')}`",
+                f"- selected hwnd: `{attempt.get('selected_hwnd')}`",
+                f"- selected pid/root: `{attempt.get('selected_pid')}` / `{attempt.get('selected_root_hwnd')}` `{attempt.get('selected_root_title')}`",
+                f"- foreground before: `{attempt.get('foreground_before_title')}`",
+                f"- foreground before pid/root: `{attempt.get('foreground_before_pid')}` / `{attempt.get('foreground_before_root_hwnd')}` `{attempt.get('foreground_before_root_title')}`",
+                f"- foreground after: `{attempt.get('foreground_after_title')}`",
+                f"- foreground after pid/root: `{attempt.get('foreground_after_pid')}` / `{attempt.get('foreground_after_root_hwnd')}` `{attempt.get('foreground_after_root_title')}`",
+                f"- foreground after F5: `{attempt.get('foreground_after_f5_title')}`",
+                f"- foreground after F5 pid/root: `{attempt.get('foreground_after_f5_pid')}` / `{attempt.get('foreground_after_f5_root_hwnd')}` `{attempt.get('foreground_after_f5_root_title')}`",
+                f"- foreground confirmed: `{attempt.get('foreground_confirmed')}`",
+                f"- foreground confirmation reason: `{attempt.get('foreground_confirmation_reason')}`",
+                f"- f5 method: `{attempt.get('f5_method')}`",
+                f"- f5 methods attempted: `{attempt.get('f5_methods_attempted')}`",
+                f"- f5 sent to selected hwnd: `{attempt.get('f5_sent_to_selected_hwnd')}`",
                 f"- f5 pressed: `{attempt.get('f5_pressed')}`",
+                f"- play confirmation evidence: `{attempt.get('play_confirmation_evidence')}`",
                 f"- score: `{attempt.get('score')}/5`",
                 f"- matched markers: `{', '.join(attempt.get('matched_markers', []))}`",
             ]

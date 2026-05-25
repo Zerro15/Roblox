@@ -33,6 +33,7 @@ function WaveService:StartWave(waveNumber)
 	self.currentWave = waveNumber
 	self.isWaveRunning = true
 	print("[WaveService] Starting wave " .. waveNumber)
+	warn("[WaveService] Runtime marker: Starting wave " .. waveNumber)
 
 	local spawnedEnemies = {}
 	local pathPoints = PathService:GetPathPoints()
@@ -48,6 +49,7 @@ function WaveService:StartWave(waveNumber)
 				table.insert(spawnedEnemies, enemy)
 				EnemyService:StartEnemyMovement(enemy, pathPoints)
 				print(string.format("[WaveService] Spawned moving enemy %s", enemy.Name))
+				warn(string.format("[WaveService] Runtime marker: Spawned moving enemy %s", enemy.Name))
 			end
 
 			offsetX += 4
@@ -56,10 +58,12 @@ function WaveService:StartWave(waveNumber)
 	end
 
 	print(string.format("[WaveService] Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
+	warn(string.format("[WaveService] Runtime marker: Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
 	self:WaitForWaveClear()
 	self.isWaveRunning = false
 	self.wavesCompleted += 1
 	print("[WaveService] Wave completed " .. waveNumber)
+	warn("[WaveService] Runtime marker: Wave completed " .. waveNumber)
 	return true
 end
 
@@ -131,6 +135,7 @@ function WaveService:StartWaveLoop(maxWaves)
 		end
 
 		print("[WaveService] Wave loop completed")
+		warn("[WaveService] Runtime marker: Wave loop completed")
 	end)
 end
 
@@ -141,6 +146,7 @@ function WaveService:Init()
 	end
 
 	print(string.format("[WaveService] Loaded %d wave definitions", count))
+	warn(string.format("[WaveService] Runtime marker: Loaded %d wave definitions", count))
 end
 
 return WaveService
