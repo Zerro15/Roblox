@@ -25,6 +25,7 @@ from process_manager import is_process_alive, list_relevant_processes, start_pro
 from roblox_logs import collect_latest_markers
 from screen_recorder import record_screen
 from screenshot import take_screenshot
+from studio_play_controller import force_play as force_studio_play
 from window_focus import (
 	choose_best_studio_window,
 	find_ignored_studio_windows,
@@ -306,6 +307,13 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- project markers count: `{report.get('project_markers_count', 0)}`",
 		f"- possible next fix: `{report.get('possible_next_fix', '')}`",
 		"",
+		"## Studio Play Controller",
+		f"- selected title: `{report.get('studio_play_controller', {}).get('selected_title', '')}`",
+		f"- foreground confirmed: `{report.get('studio_play_controller', {}).get('foreground_confirmed', False)}`",
+		f"- f5 method: `{report.get('studio_play_controller', {}).get('f5_method', '')}`",
+		f"- f5 pressed: `{report.get('studio_play_controller', {}).get('f5_pressed', False)}`",
+		f"- error: `{report.get('studio_play_controller', {}).get('error', '')}`",
+		"",
 		"## Expected Visual Runtime Beacons",
 		"- Blue `ServerBootBeacon` near `Workspace/DemoDiagnostics`",
 		"- Green `PlayerSpawnBeacon` near `Workspace/DemoDiagnostics`",
@@ -443,6 +451,9 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 		return "WRONG_STUDIO_WINDOW"
 
 	if not report.get("f5_pressed", False):
+		controller = report.get("studio_play_controller", {})
+		if controller and not controller.get("f5_pressed", False):
+			return "STUDIO_FOREGROUND_BLOCKED"
 		return "F5_NOT_PRESSED"
 
 	matched = report.get("matched_markers", [])
@@ -499,6 +510,7 @@ def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
 		"STUDIO_WINDOW_NOT_VISIBLE": "Close extra Studio windows and keep build/game.rbxlx visible.",
 		"FOCUS_FAILED": "Retry safe click-focus and inspect selected_studio_window_title.",
 		"F5_NOT_PRESSED": "Use assisted click-focus mode or manually focus Studio during fallback wait.",
+		"STUDIO_FOREGROUND_BLOCKED": "Close browser/extra Studio windows or run PowerShell as normal user, not admin.",
 		"WRONG_STUDIO_WINDOW": "Close AutoRecovery/Installer windows so build/game.rbxlx is selected.",
 		"ONLY_WARN_ERROR_MARKERS": "Inspect expanded roblox_latest_markers.md checked files; Play may not have started runtime or logs may be elsewhere.",
 		"PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "Open Studio Output and check whether server/client scripts ran after F5.",
@@ -561,35 +573,48 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 		if auto_play_mode == "assisted":
 			print("\n" + "="*60)
 			print("ASSISTED AUTO-PLAY")
-			print("The runner will safely focus the selected game.rbxlx Roblox Studio window.")
+			print("The runner will try the Windows-level Studio play controller first.")
+			print("If it fails, it will fall back to assisted focus.")
 			print("Do not use mouse/keyboard during focus attempt.")
 			print("="*60 + "\n")
 
 			report["active_window_before_auto_play"] = get_active_window_title()
-			click_focus_ok = safe_click_focus_studio_window(report)
+			controller_result = force_studio_play()
+			report["studio_play_controller"] = controller_result
 
-			if click_focus_ok:
-				print("[Demo] Assisted click-focus F5 pressed")
-				pyautogui.press("f5")
+			if controller_result.get("f5_pressed"):
+				print("[Demo] Windows Studio play controller pressed F5")
 				report["f5_pressed"] = True
-				report["auto_play_status"] = "AUTO_PLAY_ASSISTED_CLICK_FOCUS_F5_PRESSED"
+				report["auto_play_status"] = "AUTO_PLAY_FORCE_CONTROLLER_F5_PRESSED"
 				report["active_window_after_auto_play"] = get_active_window_title()
 				time.sleep(4)
 			else:
-				print("[Demo] Click-focus failed. Click Roblox Studio within 30 seconds.")
-				if wait_for_studio_focus(30):
-					print("[Demo] Assisted wait-focus F5 pressed")
+				print("[Demo] Windows Studio play controller failed; falling back to assisted click-focus")
+				report["auto_play_status"] = "AUTO_PLAY_FORCE_CONTROLLER_FAILED_FALLBACK_USED"
+				click_focus_ok = safe_click_focus_studio_window(report)
+
+				if click_focus_ok:
+					print("[Demo] Assisted click-focus F5 pressed")
 					pyautogui.press("f5")
 					report["f5_pressed"] = True
-					report["auto_play_status"] = "AUTO_PLAY_ASSISTED_WAIT_FOCUS_F5_PRESSED"
+					report["auto_play_status"] = "AUTO_PLAY_ASSISTED_CLICK_FOCUS_F5_PRESSED"
 					report["active_window_after_auto_play"] = get_active_window_title()
 					time.sleep(4)
 				else:
-					print("[Demo] Assisted auto-play skipped: Studio focus timed out")
-					report["f5_pressed"] = False
-					report["auto_play_status"] = "AUTO_PLAY_ASSISTED_FOCUS_TIMEOUT"
-					report["active_window_after_auto_play"] = get_active_window_title()
-					time.sleep(2)
+					print("[Demo] Click-focus failed. Click Roblox Studio within 30 seconds.")
+					if wait_for_studio_focus(30):
+						print("[Demo] Assisted wait-focus F5 pressed")
+						pyautogui.press("f5")
+						report["f5_pressed"] = True
+						report["auto_play_status"] = "AUTO_PLAY_ASSISTED_WAIT_FOCUS_F5_PRESSED"
+						report["active_window_after_auto_play"] = get_active_window_title()
+						time.sleep(4)
+					else:
+						print("[Demo] Assisted auto-play skipped: Studio focus timed out")
+						report["f5_pressed"] = False
+						report["auto_play_status"] = "AUTO_PLAY_ASSISTED_FOCUS_TIMEOUT"
+						report["active_window_after_auto_play"] = get_active_window_title()
+						time.sleep(2)
 		else:
 			print("\n" + "="*60)
 			print("Auto-play is enabled.")
@@ -758,16 +783,17 @@ def main() -> int:
 	]
 
 	matched = report.get("matched_markers", [])
+	project_markers_count = int(report.get("project_markers_count", 0))
 
 	if report.get("result_status") == "DEMO_RECORDED":
 		spectator_hits = sum(1 for marker in spectator_markers if marker in matched)
 		gameplay_hits = sum(1 for marker in gameplay_loop_markers if marker in matched)
 		diagnostic_hits = sum(1 for marker in diagnostic_beacon_markers if marker in matched)
 
-		if diagnostic_hits >= 5:
+		if diagnostic_hits >= 5 or project_markers_count >= 5:
 			report["play_status"] = "DEMO_RECORDED_RUNTIME_DIAGNOSTICS_CONFIRMED"
 			report["video_score"] = 4
-		elif diagnostic_hits >= 3:
+		elif diagnostic_hits >= 3 or project_markers_count >= 3:
 			report["play_status"] = "DEMO_RECORDED_RUNTIME_PARTIAL_CONFIRMED"
 			report["video_score"] = 3
 		elif spectator_hits >= 3 and gameplay_hits > 0:

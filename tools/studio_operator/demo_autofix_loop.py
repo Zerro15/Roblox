@@ -33,6 +33,7 @@ DIAGNOSES = [
     "STUDIO_WINDOW_NOT_VISIBLE",
     "FOCUS_FAILED",
     "F5_NOT_PRESSED",
+    "STUDIO_FOREGROUND_BLOCKED",
     "PLAY_NOT_CONFIRMED",
     "SERVER_BOOT_NOT_FOUND",
     "CLIENT_BOOT_NOT_FOUND",
@@ -177,6 +178,8 @@ def classify_failure(
     if selected_title and ("game.rbxlx" not in selected_lower or "roblox studio" not in selected_lower):
         return "FOCUS_FAILED"
     if not f5_pressed:
+        if "FOCUS_TIMEOUT" in auto_play_status or "FORCE_CONTROLLER_FAILED" in auto_play_status:
+            return "STUDIO_FOREGROUND_BLOCKED"
         return "F5_NOT_PRESSED"
     if "F5_PRESSED" not in auto_play_status:
         return "PLAY_NOT_CONFIRMED"
@@ -227,7 +230,8 @@ def success_criteria(
 def safe_fix_strategy(diagnosis_name: str, attempt: int) -> dict[str, Any]:
     strategies = {
         "FOCUS_FAILED": "No source edit applied. Existing assisted click-focus is already enabled; rerun after closing extra Studio windows.",
-        "F5_NOT_PRESSED": "No source edit applied. Rerun with assisted click-focus and keep build/game.rbxlx visible.",
+        "F5_NOT_PRESSED": "F5_NOT_PRESSED detected; force controller enabled for next attempt.",
+        "STUDIO_FOREGROUND_BLOCKED": "Close browser/extra Studio windows or run PowerShell as normal user, not admin.",
         "ONLY_WARN_ERROR_MARKERS": "No gameplay edit applied. Expanded Roblox log aggregation is active; next step is to inspect checked log files and Studio Output.",
         "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "No gameplay edit applied. Runtime may not have started or logs may be in another file.",
         "RUNTIME_MARKERS_NOT_CAPTURED": "No gameplay edit applied. F5/video succeeded, but warn-based runtime markers were not captured.",
@@ -310,6 +314,7 @@ def write_autofix_report(attempts: list[dict[str, Any]], fixes: list[dict[str, A
         f"- f5 pressed: `{latest.get('f5_pressed', False)}`",
         f"- auto-play status: `{latest.get('auto_play_status', '')}`",
         f"- project markers count: `{latest.get('project_markers_count', 0)}`",
+        f"- foreground recovery note: `{safe_fix_strategy(latest.get('diagnosis', 'UNKNOWN_FAILURE'), len(attempts) or 1)['description']}`",
         "",
         "## Expected Visual Runtime Beacons",
         "- Blue `ServerBootBeacon` near `Workspace/DemoDiagnostics`",

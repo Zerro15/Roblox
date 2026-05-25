@@ -83,6 +83,13 @@ The analyzer treats 3 or more runtime diagnostic markers as a partial runtime co
 - No committing `build/`, `logs/`, screenshots, recordings, MP4 files, `.env`, `.venv`, or `.claude`.
 - No changes to core gameplay economy, balance, or tower/enemy mechanics.
 - No infinite loops.
+- No killing or closing Roblox Studio processes when foreground is blocked.
+
+## Windows Studio Play Controller
+
+The demo runner uses `tools/studio_operator/studio_play_controller.py` before the older assisted click-focus path. It selects only the `build\game.rbxlx - Roblox Studio` window, ignores browser/terminal/installer/autorecovery windows, and tries to press F5 through a Windows foreground-safe path.
+
+If Windows blocks foreground activation, reports should use `STUDIO_FOREGROUND_BLOCKED` and recommend closing browser/extra Studio windows or running PowerShell as a normal user instead of Administrator.
 
 ## Reports
 
