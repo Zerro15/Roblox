@@ -170,8 +170,10 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- build path: `{report.get('build_path', 'not_built')}`",
 		f"- build status: `{report.get('build_status', 'not_run')}`",
 		f"- open status: `{report.get('open_status', 'not_run')}`",
-		f"- active window before focus: `{report.get('active_window_before_focus', '')}`",
-		f"- active window after focus: `{report.get('active_window_after_focus', '')}`",
+		f"- auto-play enabled: `{report.get('auto_play_enabled', False)}`",
+		f"- auto-play status: `{report.get('auto_play_status', 'AUTO_PLAY_DISABLED')}`",
+		f"- active window before auto-play: `{report.get('active_window_before_auto_play', '')}`",
+		f"- active window after auto-play: `{report.get('active_window_after_auto_play', '')}`",
 		f"- was F5 pressed: `{report.get('f5_pressed', False)}`",
 		f"- recording path: `{report.get('recording_path', '')}`",
 		f"- result status: `{report.get('result_status', 'unknown')}`",
@@ -292,7 +294,7 @@ def record_only_mode(report: dict[str, Any], state: dict[str, Any], duration: in
 	update_status(state, report["result_status"])
 
 
-def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], duration: int) -> None:
+def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], duration: int, auto_play: bool = False) -> None:
 	if not build_place(report, state):
 		report["result_status"] = "DEMO_BUILD_FAILED"
 		report["note"] = report.get("build_error", "Build failed.")
@@ -310,14 +312,46 @@ def manual_play_record_mode(report: dict[str, Any], state: dict[str, Any], durat
 
 	capture_and_record(state, report, "before_manual_play")
 
-	print("\n" + "="*60)
-	print("Recording will start in 5 seconds.")
-	print("Make sure Roblox Studio is visible.")
-	print("When recording starts, click Studio and press Play/F5.")
-	print("Do not switch windows.")
-	print("="*60 + "\n")
+	report["auto_play_enabled"] = auto_play
+	report["f5_pressed"] = False
+	report["auto_play_status"] = "AUTO_PLAY_DISABLED"
 
-	time.sleep(5)
+	if auto_play:
+		print("\n" + "="*60)
+		print("Auto-play is enabled.")
+		print("The runner will focus Roblox Studio and press F5 only if Studio focus is confirmed.")
+		print("="*60 + "\n")
+
+		best = choose_best_studio_window()
+		report["active_window_before_auto_play"] = get_active_window_title()
+
+		if best:
+			print("[Demo] Attempting to focus Roblox Studio...")
+			focus_window(best["window"])
+			time.sleep(2)
+
+		report["active_window_after_auto_play"] = get_active_window_title()
+
+		if is_active_studio_window():
+			print("[Demo] F5 pressed")
+			pyautogui.press("f5")
+			report["f5_pressed"] = True
+			report["auto_play_status"] = "AUTO_PLAY_F5_PRESSED"
+			time.sleep(4)
+		else:
+			print("[Demo] Auto-play skipped: Studio focus not confirmed")
+			report["f5_pressed"] = False
+			report["auto_play_status"] = "AUTO_PLAY_FOCUS_NOT_CONFIRMED"
+			time.sleep(2)
+	else:
+		print("\n" + "="*60)
+		print("Recording will start in 5 seconds.")
+		print("Make sure Roblox Studio is visible.")
+		print("When recording starts, click Studio and press Play/F5.")
+		print("Do not switch windows.")
+		print("="*60 + "\n")
+
+		time.sleep(5)
 
 	recording = record_screen(duration_seconds=duration)
 	report["recording_path"] = recording.get("recording_path")
@@ -381,6 +415,7 @@ def main() -> int:
 	parser.add_argument("--mode", choices=("observe", "record-only", "run-demo", "manual-play-record"), required=True)
 	parser.add_argument("--duration", type=int, default=60)
 	parser.add_argument("--focus-mode", choices=("assisted",), default="assisted")
+	parser.add_argument("--auto-play", action="store_true", help="Automatically press F5 to start Play mode (manual-play-record only)")
 	args = parser.parse_args()
 
 	ensure_logs_dir()
@@ -393,6 +428,8 @@ def main() -> int:
 		"f5_pressed": False,
 		"windows": [],
 		"relevant_processes": [],
+		"auto_play_enabled": False,
+		"auto_play_status": "AUTO_PLAY_DISABLED",
 	}
 
 	try:
@@ -401,7 +438,7 @@ def main() -> int:
 		elif args.mode == "record-only":
 			record_only_mode(report, state, report["duration"])
 		elif args.mode == "manual-play-record":
-			manual_play_record_mode(report, state, report["duration"])
+			manual_play_record_mode(report, state, report["duration"], auto_play=args.auto_play)
 		else:
 			run_demo_mode(report, state, report["duration"], args.focus_mode)
 	except Exception as exc:

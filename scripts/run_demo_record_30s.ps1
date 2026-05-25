@@ -1,3 +1,7 @@
+param(
+	[switch]$AutoPlay
+)
+
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -19,14 +23,31 @@ $pythonExe = Join-Path $venvPath "Scripts\python.exe"
 Write-Output ""
 Write-Output "Quick demo test: 30 second recording"
 Write-Output ""
+
+if ($AutoPlay) {
+	Write-Output "Mode: Auto-play enabled"
+	Write-Output "The runner will focus Roblox Studio and press F5 only if Studio focus is confirmed."
+} else {
+	Write-Output "Mode: Manual play"
+	Write-Output "User must press Play/F5 manually when recording starts."
+}
+
+Write-Output ""
 Write-Output "Instructions:"
 Write-Output "1. Close or restore old Roblox Studio windows if they are minimized."
 Write-Output "2. The script will try to restore/maximize Studio."
-Write-Output "3. When recording starts, click Studio and press Play/F5."
+if (-not $AutoPlay) {
+	Write-Output "3. When recording starts, click Studio and press Play/F5."
+}
 Write-Output ""
 
 & $pythonExe -m pip install -r $requirementsPath -q
-& $pythonExe $demoPath --mode manual-play-record --duration 30
+
+if ($AutoPlay) {
+	& $pythonExe $demoPath --mode manual-play-record --duration 30 --auto-play
+} else {
+	& $pythonExe $demoPath --mode manual-play-record --duration 30
+}
 
 Write-Output ""
 Write-Output "Demo report: $demoReportPath"

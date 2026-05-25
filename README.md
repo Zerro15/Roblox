@@ -573,6 +573,55 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 - `[PlayerSpawnService] Demo spawn ready`
 - `[Client] Demo camera activated`
 
+## Demo Recording with Auto-Play
+
+Добавлена безопасная автоматизация нажатия F5 для запуска Play Mode во время демо-записей.
+
+### Как это работает
+
+- [tools/studio_operator/demo_test_player.py](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/tools/studio_operator/demo_test_player.py)
+  получает параметр `--auto-play`
+- при включении auto-play:
+  1. скрипт фокусирует лучшее Studio окно
+  2. проверяет, что активное окно действительно Roblox Studio
+  3. если фокус подтверждён — нажимает F5 и ждёт 4 секунды перед записью
+  4. если фокус не подтверждён — пропускает F5 и продолжает запись (без ошибок)
+- в report добавляются поля:
+  - `auto_play_enabled`: true/false
+  - `auto_play_status`: AUTO_PLAY_F5_PRESSED / AUTO_PLAY_FOCUS_NOT_CONFIRMED / AUTO_PLAY_DISABLED
+  - `active_window_before_auto_play`
+  - `active_window_after_auto_play`
+
+### Быстрый старт с auto-play
+
+```powershell
+# 30 секунд с auto-play
+.\scripts\run_demo_auto_play_30s.ps1
+
+# 30 секунд с параметром
+.\scripts\run_demo_record_30s.ps1 -AutoPlay
+
+# 90 секунд с auto-play
+.\scripts\run_demo_test.ps1 -AutoPlay
+```
+
+### Старый режим (ручной)
+
+```powershell
+# 30 секунд без auto-play (нужно нажимать F5 вручную)
+.\scripts\run_demo_record_30s.ps1
+
+# 90 секунд без auto-play
+.\scripts\run_demo_test.ps1
+```
+
+### Когда использовать auto-play
+
+- ✅ Когда Studio видна и не минимизирована
+- ✅ Когда нужна полностью автоматическая запись
+- ⚠️ Если Studio не видна, скрипт пропустит F5 и продолжит запись (не упадёт)
+- ❌ Если нужна ручная подготовка сцены перед Play
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.
