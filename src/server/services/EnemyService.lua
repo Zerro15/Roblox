@@ -1,3 +1,4 @@
+local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -8,6 +9,8 @@ local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
 local EnemyService = {
 	activeEnemies = {},
+	nextEnemyId = 0,
+	enemyReachedBaseCallback = nil,
 }
 
 local function toVector3(values)
@@ -19,7 +22,56 @@ local function toColor3(values)
 end
 
 local function getEnemyKey(enemy)
-	return enemy:GetDebugId()
+	return enemy:GetAttribute("RuntimeEnemyId") or enemy.Name
+end
+
+local function updateEnemyHealthLabel(enemy)
+	local billboard = enemy:FindFirstChild("DemoHealthBillboard")
+	local label = billboard and billboard:FindFirstChild("HealthText")
+	if not label or not label:IsA("TextLabel") then
+		return
+	end
+
+	local health = math.max(enemy:GetAttribute("Health") or 0, 0)
+	local maxHealth = enemy:GetAttribute("MaxHealth") or health
+	label.Text = string.format("%s  %d/%d", enemy.Name, health, maxHealth)
+end
+
+local function createEnemyHealthBillboard(enemy)
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DemoHealthBillboard"
+	billboard.Size = UDim2.new(0, 150, 0, 34)
+	billboard.StudsOffset = Vector3.new(0, 4.5, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = enemy
+
+	local label = Instance.new("TextLabel")
+	label.Name = "HealthText"
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
+	label.BackgroundTransparency = 0.25
+	label.BorderSizePixel = 0
+	label.TextColor3 = Color3.new(1.0, 0.95, 0.55)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+
+	updateEnemyHealthLabel(enemy)
+end
+
+local function createDamageFlash(enemy)
+	local flash = Instance.new("Part")
+	flash.Name = "DemoDamageFlash"
+	flash.Shape = Enum.PartType.Ball
+	flash.Size = Vector3.new(5.5, 5.5, 5.5)
+	flash.Position = enemy.Position
+	flash.Anchored = true
+	flash.CanCollide = false
+	flash.Material = Enum.Material.Neon
+	flash.Color = Color3.new(1.0, 0.18, 0.08)
+	flash.Transparency = 0.25
+	flash.Parent = enemy.Parent
+	Debris:AddItem(flash, 0.22)
 end
 
 function EnemyService:GetActiveEnemies()
@@ -61,6 +113,10 @@ function EnemyService:CleanupEnemy(enemy)
 	end
 end
 
+function EnemyService:SetEnemyReachedBaseCallback(callback)
+	self.enemyReachedBaseCallback = callback
+end
+
 function EnemyService:DamageEnemy(enemy, amount, source)
 	if not self:IsEnemyAlive(enemy) then
 		return {
@@ -75,12 +131,20 @@ function EnemyService:DamageEnemy(enemy, amount, source)
 	local currentHealth = enemy:GetAttribute("Health") or 0
 	local newHealth = currentHealth - amount
 	enemy:SetAttribute("Health", newHealth)
+	updateEnemyHealthLabel(enemy)
+	createDamageFlash(enemy)
+	print(string.format("[DemoGameplay] Enemy damaged: %s for %s", enemy.Name, tostring(amount)))
+	warn(string.format("[DemoGameplay] Enemy damaged: %s", enemy.Name))
+	print(string.format("[Playable] Enemy damaged: %s for %s", enemy.Name, tostring(amount)))
+	warn(string.format("[Playable] Enemy damaged: %s", enemy.Name))
 
 	if newHealth <= 0 then
 		local reward = enemy:GetAttribute("Reward") or 0
 		local enemyName = enemy.Name
 		print("[EnemyService] Enemy defeated: " .. enemyName .. ", reward: " .. tostring(reward))
 		warn("[EnemyService] Runtime marker: Enemy defeated: " .. enemyName)
+		print("[Playable] Enemy killed: " .. enemyName)
+		warn("[Playable] Enemy killed: " .. enemyName)
 		self:CleanupEnemy(enemy)
 		return {
 			damaged = true,
@@ -114,6 +178,10 @@ function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
 
 	local speed = enemy:GetAttribute("Speed") or 8
 	enemy:SetAttribute("IsMoving", true)
+	print("[DemoGameplay] Enemy pathing started: " .. enemy.Name)
+	warn("[DemoGameplay] Enemy pathing started: " .. enemy.Name)
+	print("[Playable] Enemy pathing started: " .. enemy.Name)
+	warn("[Playable] Enemy pathing started: " .. enemy.Name)
 
 	for index, point in ipairs(pathPoints) do
 		if not self:IsEnemyAlive(enemy) then
@@ -144,6 +212,12 @@ function EnemyService:MoveEnemyAlongPath(enemy, pathPoints)
 	if self:IsEnemyAlive(enemy) then
 		print("[EnemyService] Enemy reached exit: " .. enemy.Name)
 		warn("[EnemyService] Runtime marker: Enemy reached exit: " .. enemy.Name)
+		if self.enemyReachedBaseCallback then
+			self.enemyReachedBaseCallback(enemy)
+		else
+			print("[Playable] Enemy reached base: " .. enemy.Name)
+			warn("[Playable] Enemy reached base: " .. enemy.Name)
+		end
 	end
 	self:CleanupEnemy(enemy)
 end
@@ -163,6 +237,7 @@ function EnemyService:SpawnEnemy(enemyType, position)
 
 	local enemiesFolder = RuntimeService:GetContainer("Enemies")
 	local enemy = Instance.new("Part")
+	self.nextEnemyId += 1
 	enemy.Name = enemyType
 	enemy.Size = toVector3(config.size)
 	enemy.Color = toColor3(config.color)
@@ -181,11 +256,17 @@ function EnemyService:SpawnEnemy(enemyType, position)
 	enemy:SetAttribute("IsMoving", false)
 	enemy:SetAttribute("PathIndex", 1)
 	enemy:SetAttribute("Reward", config.reward)
+	enemy:SetAttribute("RuntimeEnemyId", string.format("Enemy_%03d", self.nextEnemyId))
 	enemy.Parent = enemiesFolder
+	createEnemyHealthBillboard(enemy)
 	self.activeEnemies[getEnemyKey(enemy)] = enemy
 
 	print(string.format("[EnemyService] Spawned enemy %s at %.1f, %.1f, %.1f", enemy.Name, enemy.Position.X, enemy.Position.Y, enemy.Position.Z))
 	warn(string.format("[EnemyService] Runtime marker: Spawned enemy %s", enemy.Name))
+	print("[DemoGameplay] Enemy spawned: " .. enemy.Name)
+	warn("[DemoGameplay] Enemy spawned: " .. enemy.Name)
+	print("[Playable] Enemy spawned: " .. enemy.Name)
+	warn("[Playable] Enemy spawned: " .. enemy.Name)
 
 	return enemy
 end

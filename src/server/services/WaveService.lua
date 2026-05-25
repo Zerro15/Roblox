@@ -5,6 +5,7 @@ local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local WaveConfig = require(Shared:WaitForChild("configs"):WaitForChild("WaveConfig"))
 
 local EnemyService = require(script.Parent:WaitForChild("EnemyService"))
+local GameStateService = require(script.Parent:WaitForChild("GameStateService"))
 local PathService = require(script.Parent:WaitForChild("PathService"))
 
 local WaveService = {
@@ -32,8 +33,12 @@ function WaveService:StartWave(waveNumber)
 
 	self.currentWave = waveNumber
 	self.isWaveRunning = true
+	GameStateService:SetWave(waveNumber)
+	GameStateService:SetState("WaveRunning")
 	print("[WaveService] Starting wave " .. waveNumber)
 	warn("[WaveService] Runtime marker: Starting wave " .. waveNumber)
+	print("[Playable] Wave started: " .. waveNumber)
+	warn("[Playable] Wave started: " .. waveNumber)
 
 	local spawnedEnemies = {}
 	local pathPoints = PathService:GetPathPoints()
@@ -47,6 +52,7 @@ function WaveService:StartWave(waveNumber)
 			local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
 			if enemy then
 				table.insert(spawnedEnemies, enemy)
+				GameStateService:SetEnemiesAlive(self:CountAliveEnemies())
 				EnemyService:StartEnemyMovement(enemy, pathPoints)
 				print(string.format("[WaveService] Spawned moving enemy %s", enemy.Name))
 				warn(string.format("[WaveService] Runtime marker: Spawned moving enemy %s", enemy.Name))
@@ -60,10 +66,15 @@ function WaveService:StartWave(waveNumber)
 	print(string.format("[WaveService] Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
 	warn(string.format("[WaveService] Runtime marker: Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
 	self:WaitForWaveClear()
+	GameStateService:SetEnemiesAlive(0)
 	self.isWaveRunning = false
 	self.wavesCompleted += 1
 	print("[WaveService] Wave completed " .. waveNumber)
 	warn("[WaveService] Runtime marker: Wave completed " .. waveNumber)
+	print("[DemoGameplay] Wave completed: " .. waveNumber)
+	warn("[DemoGameplay] Wave completed: " .. waveNumber)
+	print("[Playable] Wave completed: " .. waveNumber)
+	warn("[Playable] Wave completed: " .. waveNumber)
 	return true
 end
 
@@ -104,6 +115,11 @@ function WaveService:WaitForWaveClear()
 	local timeoutAt = os.clock() + 120
 
 	while self:CountAliveEnemies() > 0 do
+		GameStateService:SetEnemiesAlive(self:CountAliveEnemies())
+		if GameStateService:GetBaseHealth() <= 0 then
+			return false
+		end
+
 		if os.clock() >= timeoutAt then
 			warn("[WaveService] Wave clear wait timed out")
 			return false
@@ -122,6 +138,7 @@ end
 function WaveService:StartWaveLoop(maxWaves)
 	task.spawn(function()
 		local totalWaves = math.min(maxWaves or #WaveConfig, #WaveConfig)
+		GameStateService:SetState("Running")
 
 		for waveNumber = 1, totalWaves do
 			local started = self:StartWave(waveNumber)
@@ -129,13 +146,23 @@ function WaveService:StartWaveLoop(maxWaves)
 				break
 			end
 
+			if GameStateService:GetBaseHealth() <= 0 then
+				break
+			end
+
 			if waveNumber < totalWaves then
+				GameStateService:SetState("Intermission")
 				task.wait(self.intermissionSeconds)
 			end
 		end
 
 		print("[WaveService] Wave loop completed")
 		warn("[WaveService] Runtime marker: Wave loop completed")
+		if GameStateService:GetBaseHealth() > 0 and self.wavesCompleted >= totalWaves then
+			GameStateService:SetState("Victory")
+			print("[Playable] Victory")
+			warn("[Playable] Victory")
+		end
 	end)
 end
 

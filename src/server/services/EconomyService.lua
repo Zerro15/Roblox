@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 
+local GameStateService = require(script.Parent:WaitForChild("GameStateService"))
+
 local EconomyService = {
 	startingMoney = 0,
 	currentMoney = 0,
@@ -22,6 +24,7 @@ function EconomyService:Spend(amount)
 	end
 
 	self.currentMoney -= amount
+	GameStateService:SetMoney(self.currentMoney)
 	return true
 end
 
@@ -31,6 +34,7 @@ function EconomyService:Add(amount)
 	end
 
 	self.currentMoney += amount
+	GameStateService:SetMoney(self.currentMoney)
 	return self.currentMoney
 end
 
@@ -51,12 +55,15 @@ function EconomyService:AwardForEnemy(enemyName, reward, source)
 		source or "UnknownSource",
 		currentMoney
 	))
+	print(string.format("[Playable] Reward granted: %d for %s", reward, enemyName or "UnknownEnemy"))
+	warn(string.format("[Playable] Reward granted: %d", reward))
 	return currentMoney
 end
 
 function EconomyService:Init()
 	self.startingMoney = GameConfig.StartingMoney or 300
 	self.currentMoney = self.startingMoney
+	GameStateService:SetMoney(self.currentMoney)
 	print(string.format("[EconomyService] Starting money: %d", self.currentMoney))
 end
 
