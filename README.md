@@ -580,28 +580,41 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 ### Как это работает
 
 - [tools/studio_operator/demo_test_player.py](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/tools/studio_operator/demo_test_player.py)
-  получает параметр `--auto-play`
-- при включении auto-play:
-  1. скрипт фокусирует лучшее Studio окно
-  2. проверяет, что активное окно действительно Roblox Studio
-  3. если фокус подтверждён — нажимает F5 и ждёт 4 секунды перед записью
-  4. если фокус не подтверждён — пропускает F5 и продолжает запись (без ошибок)
+  получает параметры `--auto-play` и `--auto-play-mode`
+- два режима auto-play:
+  - **safe** (по умолчанию): скрипт сам фокусирует Studio окно и нажимает F5
+  - **assisted**: пользователь кликает Studio, скрипт проверяет фокус и нажимает F5
+- в обоих режимах:
+  1. проверяется, что активное окно действительно Roblox Studio
+  2. если фокус подтвержден — нажимается F5 и ждется 4 секунды перед записью
+  3. если фокус не подтвержден — пропускается F5 и продолжается запись (без ошибок)
 - в report добавляются поля:
   - `auto_play_enabled`: true/false
-  - `auto_play_status`: AUTO_PLAY_F5_PRESSED / AUTO_PLAY_FOCUS_NOT_CONFIRMED / AUTO_PLAY_DISABLED
+  - `auto_play_mode`: safe/assisted
+  - `auto_play_status`: AUTO_PLAY_F5_PRESSED / AUTO_PLAY_ASSISTED_F5_PRESSED / AUTO_PLAY_FOCUS_NOT_CONFIRMED / AUTO_PLAY_ASSISTED_FOCUS_NOT_CONFIRMED / AUTO_PLAY_DISABLED
   - `active_window_before_auto_play`
   - `active_window_after_auto_play`
 
 ### Быстрый старт с auto-play
 
+**Assisted режим (рекомендуется для Windows):**
 ```powershell
-# 30 секунд с auto-play
+# 30 секунд с assisted auto-play
+.\scripts\run_demo_assisted_auto_play_30s.ps1
+
+# Или с параметром
+.\scripts\run_demo_record_30s.ps1 -AutoPlay -Assisted
+```
+
+**Safe режим (автоматический фокус):**
+```powershell
+# 30 секунд с safe auto-play
 .\scripts\run_demo_auto_play_30s.ps1
 
-# 30 секунд с параметром
+# Или с параметром
 .\scripts\run_demo_record_30s.ps1 -AutoPlay
 
-# 90 секунд с auto-play
+# 90 секунд с safe auto-play
 .\scripts\run_demo_test.ps1 -AutoPlay
 ```
 
@@ -615,12 +628,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 .\scripts\run_demo_test.ps1
 ```
 
-### Когда использовать auto-play
+### Когда использовать какой режим
 
-- ✅ Когда Studio видна и не минимизирована
-- ✅ Когда нужна полностью автоматическая запись
-- ⚠️ Если Studio не видна, скрипт пропустит F5 и продолжит запись (не упадёт)
-- ❌ Если нужна ручная подготовка сцены перед Play
+**Assisted (рекомендуется):**
+- ✅ Самый надежный на Windows
+- ✅ Пользователь контролирует момент нажатия F5
+- ✅ Не требует автоматического фокусирования
+- ✅ Лучше всего для CI/CD и автоматизации
+
+**Safe:**
+- ✅ Полностью автоматический
+- ✅ Не требует участия пользователя
+- ⚠️ Может не сработать, если Studio не видна или фокус не подтверждается
+- ❌ Менее надежен на Windows из-за особенностей фокусирования
+
+**Manual:**
+- ✅ Полный контроль пользователя
+- ✅ Для подготовки сцены перед Play
+- ❌ Требует ручного нажатия F5
+
 
 ## Safe PR Merge Manager
 

@@ -1,5 +1,6 @@
 param(
-	[switch]$AutoPlay
+	[switch]$AutoPlay,
+	[switch]$Assisted
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,8 +26,13 @@ Write-Output "Demo test: 90 second recording"
 Write-Output ""
 
 if ($AutoPlay) {
-	Write-Output "Mode: Auto-play enabled"
-	Write-Output "The runner will focus Roblox Studio and press F5 only if Studio focus is confirmed."
+	if ($Assisted) {
+		Write-Output "Mode: Assisted auto-play"
+		Write-Output "User clicks Roblox Studio, runner presses F5 after focus is confirmed."
+	} else {
+		Write-Output "Mode: Safe auto-play"
+		Write-Output "The runner will focus Roblox Studio and press F5 only if Studio focus is confirmed."
+	}
 } else {
 	Write-Output "Mode: Manual play"
 	Write-Output "User must press Play/F5 manually when recording starts."
@@ -36,7 +42,9 @@ Write-Output ""
 Write-Output "Instructions:"
 Write-Output "1. Close or restore old Roblox Studio windows if they are minimized."
 Write-Output "2. The script will try to restore/maximize Studio."
-if (-not $AutoPlay) {
+if ($AutoPlay -and $Assisted) {
+	Write-Output "3. When countdown starts, click Roblox Studio window."
+} elseif (-not $AutoPlay) {
 	Write-Output "3. When recording starts, click Studio and press Play/F5."
 }
 Write-Output ""
@@ -44,7 +52,11 @@ Write-Output ""
 & $pythonExe -m pip install -r $requirementsPath -q
 
 if ($AutoPlay) {
-	& $pythonExe $demoPath --mode manual-play-record --duration 90 --auto-play
+	if ($Assisted) {
+		& $pythonExe $demoPath --mode manual-play-record --duration 90 --auto-play --auto-play-mode assisted
+	} else {
+		& $pythonExe $demoPath --mode manual-play-record --duration 90 --auto-play --auto-play-mode safe
+	}
 } else {
 	& $pythonExe $demoPath --mode manual-play-record --duration 90
 }
