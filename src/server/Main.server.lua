@@ -8,6 +8,7 @@ local services = script.Parent:WaitForChild("services")
 local RuntimeService = require(services:WaitForChild("RuntimeService"))
 local MapService = require(services:WaitForChild("MapService"))
 local PathService = require(services:WaitForChild("PathService"))
+local GameStateService = require(services:WaitForChild("GameStateService"))
 local EconomyService = require(services:WaitForChild("EconomyService"))
 local EnemyService = require(services:WaitForChild("EnemyService"))
 local TowerService = require(services:WaitForChild("TowerService"))
@@ -16,9 +17,9 @@ local PlayerSpawnService = require(services:WaitForChild("PlayerSpawnService"))
 local DemoDiagnosticsService = require(services:WaitForChild("DemoDiagnosticsService"))
 
 print(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
-print("[Main] Demo spectator bootstrap starting")
+print("[Main] Playable tower-defense bootstrap starting")
 warn(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
-warn("[Main] Demo spectator bootstrap starting")
+warn("[Main] Playable tower-defense bootstrap starting")
 
 local function runStep(name, callback)
 	print("[Main] Starting " .. name)
@@ -41,6 +42,10 @@ end)
 DemoDiagnosticsService:Mark("ServerBootBeacon")
 warn("[Main] Demo runtime server boot confirmed")
 
+runStep("GameStateService:Init", function()
+	GameStateService:Init()
+end)
+
 runStep("PlayerSpawnService:Init", function()
 	PlayerSpawnService:Init()
 end)
@@ -62,6 +67,10 @@ end)
 
 runStep("EnemyService:Init", function()
 	EnemyService:Init()
+end)
+
+EnemyService:SetEnemyReachedBaseCallback(function(enemy)
+	GameStateService:DamageBase(1, enemy and enemy.Name or "UnknownEnemy")
 end)
 
 runStep("TowerService:Init", function()
@@ -98,6 +107,47 @@ end)
 
 runStep("TowerService:StartAllTowersCombat", function()
 	TowerService:StartAllTowersCombat()
+end)
+
+local placeTowerRequest = RuntimeService:GetRemoteEvent("PlaceTowerRequest")
+placeTowerRequest.OnServerEvent:Connect(function(player, towerType, padName)
+	towerType = towerType or "BasicTower"
+	local tower
+	if type(padName) == "string" and padName ~= "" then
+		tower = TowerService:PlaceTowerAtPad(towerType, padName, player)
+	else
+		tower = TowerService:PlaceTowerAtNextPad(towerType, player)
+	end
+	if tower then
+		print(string.format("[Main] Player %s placed tower %s", player.Name, tower.Name))
+	else
+		warn(string.format("[Main] Player %s could not place tower", player.Name))
+	end
+end)
+
+local sellTowerRequest = RuntimeService:GetRemoteEvent("SellTowerRequest")
+sellTowerRequest.OnServerEvent:Connect(function(player, towerRuntimeId)
+	if not towerRuntimeId then
+		warn(string.format("[Main] Player %s sell request missing tower id", player.Name))
+		return
+	end
+	local sold = TowerService:SellTower(towerRuntimeId)
+	if sold then
+		print(string.format("[Main] Player %s sold tower %s", player.Name, towerRuntimeId))
+	else
+		warn(string.format("[Main] Player %s failed to sell tower %s", player.Name, towerRuntimeId))
+	end
+end)
+
+local towerSelectedNotify = RuntimeService:GetRemoteEvent("TowerSelectedNotify")
+towerSelectedNotify.OnServerEvent:Connect(function(player, towerRuntimeId)
+	local towerInfo = TowerService:GetTowerInfo(towerRuntimeId)
+	if not towerInfo then
+		warn(string.format("[Main] Player %s selected invalid tower %s", player.Name, tostring(towerRuntimeId)))
+		return
+	end
+	print(string.format("[Playable] Tower selected: %s by %s", tostring(towerRuntimeId), player.Name))
+	warn(string.format("[Playable] Tower selected: %s", tostring(towerRuntimeId)))
 end)
 
 runStep("WaveService:StartWaveLoop", function()

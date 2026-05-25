@@ -49,8 +49,8 @@ function PlayerSpawnService:MoveCharacterToSpawn(character)
 		humanoid.Health = humanoid.MaxHealth
 		humanoid.PlatformStand = false
 		humanoid.Sit = false
-		humanoid.WalkSpeed = 0
-		humanoid.JumpPower = 0
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
 	end
 
 	for i = 1, 5 do
@@ -166,14 +166,7 @@ function PlayerSpawnService:SetupPlayer(player)
 end
 
 function PlayerSpawnService:Init()
-	Workspace.FallenPartsDestroyHeight = -100000
-	print("[PlayerSpawnService] FallenPartsDestroyHeight disabled for demo")
-
-	Players.CharacterAutoLoads = false
-	if self.demoSpectatorMode then
-		print("[PlayerSpawnService] Demo spectator mode enabled")
-	end
-	print("[PlayerSpawnService] CharacterAutoLoads disabled")
+	print("[PlayerSpawnService] Playable player spawn initializing")
 
 	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
 	if not demoRoot then

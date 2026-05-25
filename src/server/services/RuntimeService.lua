@@ -47,6 +47,23 @@ function RuntimeService:GetContainer(name)
 	return ensureFolder(runtimeFolder, name)
 end
 
+function RuntimeService:GetRemoteEvent(name)
+	local remotesFolder = ensureFolder(ReplicatedStorage, "Remotes")
+	local existing = remotesFolder:FindFirstChild(name)
+	if existing and existing:IsA("RemoteEvent") then
+		return existing
+	end
+
+	if existing then
+		existing:Destroy()
+	end
+
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = name
+	remote.Parent = remotesFolder
+	return remote
+end
+
 function RuntimeService:Init()
 	local runtimeFolder = self:GetOrCreateRuntimeFolder()
 
@@ -54,6 +71,9 @@ function RuntimeService:Init()
 		ensureFolder(runtimeFolder, childName)
 	end
 
+	self:GetRemoteEvent("PlaceTowerRequest")
+	self:GetRemoteEvent("SellTowerRequest")
+	self:GetRemoteEvent("TowerSelectedNotify")
 	print(string.format("[RuntimeService] Ready at Workspace/%s", runtimeFolder.Name))
 end
 

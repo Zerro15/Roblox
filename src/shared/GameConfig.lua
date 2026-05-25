@@ -5,6 +5,7 @@ local GameConfig = {
 	BridgePollInterval = 2,
 	RuntimeFolderName = "GameRuntime",
 	StartingMoney = 300,
+	BaseHealth = 20,
 	DefaultEnemySpawn = { 0, 3, 0 },
 	DefaultTowerPosition = { 0, 4, -18 },
 }

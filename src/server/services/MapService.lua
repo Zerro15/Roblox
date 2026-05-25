@@ -17,6 +17,7 @@ local MAP_CHILDREN = {
 	"Lamps",
 	"Decorations",
 	"Zones",
+	"BuildPads",
 }
 
 local function toVector3(values)
@@ -99,6 +100,7 @@ function MapService:BuildBacklundFogDistrict()
 	local lampsFolder = self:GetSection("Lamps")
 	local decorationsFolder = self:GetSection("Decorations")
 	local zonesFolder = self:GetSection("Zones")
+	local buildPadsFolder = self:GetSection("BuildPads")
 
 	local groundSize = toVector3(config.mapSize)
 	createPart(
@@ -218,6 +220,27 @@ function MapService:BuildBacklundFogDistrict()
 		Enum.Material.Neon
 	).Transparency = 0.35
 
+	local buildPads = {
+		{ name = "BuildPad_1", position = Vector3.new(-66, 0.72, -42) },
+		{ name = "BuildPad_2", position = Vector3.new(-24, 0.72, 8) },
+		{ name = "BuildPad_3", position = Vector3.new(30, 0.72, 60) },
+	}
+
+	for _, pad in ipairs(buildPads) do
+		local part = createPart(
+			buildPadsFolder,
+			pad.name,
+			Enum.PartType.Cylinder,
+			Vector3.new(12, 0.8, 12),
+			pad.position,
+			Color3.new(0.1, 0.45, 1.0),
+			Enum.Material.Neon
+		)
+		part.Orientation = Vector3.new(0, 0, 90)
+		part.Transparency = 0.35
+		part:SetAttribute("Occupied", false)
+	end
+
 	local decorations = {
 		{ "CrateCluster_1", Vector3.new(-68, 2, -42), Vector3.new(4, 4, 4), Color3.new(0.28, 0.2, 0.12), Enum.Material.WoodPlanks },
 		{ "CrateCluster_2", Vector3.new(22, 2, 6), Vector3.new(4, 4, 4), Color3.new(0.28, 0.2, 0.12), Enum.Material.WoodPlanks },
@@ -247,6 +270,12 @@ function MapService:BuildBacklundFogDistrict()
 
 	self.currentMapId = config.id
 	print(string.format("[MapService] Built map: %s", config.displayName))
+	print("[DemoGameplay] Map ready")
+	warn("[DemoGameplay] Map ready")
+	print("[Playable] Map ready")
+	warn("[Playable] Map ready")
+	print("[Playable] Tower pad ready")
+	warn("[Playable] Tower pad ready")
 end
 
 function MapService:Init()

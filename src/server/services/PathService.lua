@@ -27,15 +27,55 @@ local function ensurePathFolder()
 	return folder
 end
 
+local function ensurePathGuideFolder()
+	local mapFolder = RuntimeService:GetContainer("Map")
+	local existing = mapFolder:FindFirstChild("PathGuide")
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "PathGuide"
+	folder.Parent = mapFolder
+	return folder
+end
+
+local function clearFolder(folder)
+	for _, child in ipairs(folder:GetChildren()) do
+		child:Destroy()
+	end
+end
+
+local function createPathGuideSegment(parent, index, startPoint, endPoint)
+	local midpoint = (startPoint + endPoint) / 2
+	local delta = endPoint - startPoint
+	local distance = delta.Magnitude
+	if distance <= 0 then
+		return
+	end
+
+	local segment = Instance.new("Part")
+	segment.Name = string.format("DemoPathGuide_%d", index)
+	segment.Size = Vector3.new(7.5, 0.35, distance)
+	segment.CFrame = CFrame.lookAt(midpoint + Vector3.new(0, -0.45, 0), endPoint + Vector3.new(0, -0.45, 0))
+	segment.Anchored = true
+	segment.CanCollide = false
+	segment.Material = Enum.Material.Neon
+	segment.Color = Color3.new(1.0, 0.72, 0.18)
+	segment.Transparency = 0.12
+	segment.TopSurface = Enum.SurfaceType.Smooth
+	segment.BottomSurface = Enum.SurfaceType.Smooth
+	segment.Parent = parent
+end
+
 function PathService:GetPathFolder()
 	return ensurePathFolder()
 end
 
 function PathService:ClearPath()
 	local pathFolder = self:GetPathFolder()
-	for _, child in ipairs(pathFolder:GetChildren()) do
-		child:Destroy()
-	end
+	clearFolder(pathFolder)
+	clearFolder(ensurePathGuideFolder())
 	self.currentPath = {}
 end
 
@@ -43,18 +83,19 @@ function PathService:BuildBacklundPath()
 	self:ClearPath()
 
 	local pathFolder = self:GetPathFolder()
+	local pathGuideFolder = ensurePathGuideFolder()
 	local builtPath = {}
 
 	for index, point in ipairs(PATH_POINTS) do
 		local node = Instance.new("Part")
 		node.Name = string.format("Node_%d", index)
-		node.Size = Vector3.new(2.4, 2.4, 2.4)
+		node.Size = Vector3.new(3.6, 3.6, 3.6)
 		node.Position = point
 		node.Anchored = true
 		node.CanCollide = false
 		node.Material = Enum.Material.Neon
 		node.Color = Color3.new(0.15, 0.92, 1.0)
-		node.Transparency = 0.2
+		node.Transparency = 0.08
 		node.TopSurface = Enum.SurfaceType.Smooth
 		node.BottomSurface = Enum.SurfaceType.Smooth
 		node:SetAttribute("PathIndex", index)
@@ -63,8 +104,12 @@ function PathService:BuildBacklundPath()
 		table.insert(builtPath, point)
 	end
 
+	for index = 1, #PATH_POINTS - 1 do
+		createPathGuideSegment(pathGuideFolder, index, PATH_POINTS[index], PATH_POINTS[index + 1])
+	end
+
 	self.currentPath = builtPath
-	print("[PathService] Built Backlund path with 7 nodes")
+	print("[PathService] Built Backlund path with 7 nodes and visible demo guide")
 	return builtPath
 end
 
