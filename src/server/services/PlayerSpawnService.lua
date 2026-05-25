@@ -9,6 +9,7 @@ local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
 local PlayerSpawnService = {}
 PlayerSpawnService.spawnCFrame = nil
+PlayerSpawnService.demoSpectatorMode = true
 
 local function createPart(parent, name, size, position, color, transparency, material, canCollide)
 	local part = Instance.new("Part")
@@ -69,9 +70,52 @@ function PlayerSpawnService:MoveCharacterToSpawn(character)
 	print("[PlayerSpawnService] Character locked to demo spawn")
 end
 
+function PlayerSpawnService:HideCharacter(character)
+	if not character then
+		return
+	end
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+	if humanoidRootPart then
+		character:PivotTo(CFrame.new(0, -500, 0))
+		humanoidRootPart.Anchored = true
+		humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+		humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+	end
+
+	if humanoid then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid.Health = humanoid.MaxHealth
+		humanoid.PlatformStand = true
+		humanoid.Sit = false
+	end
+
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Transparency = 1
+			descendant.CanCollide = false
+			descendant.AssemblyLinearVelocity = Vector3.zero
+			descendant.AssemblyAngularVelocity = Vector3.zero
+		elseif descendant:IsA("Decal") then
+			descendant.Transparency = 1
+		end
+	end
+
+	print("[PlayerSpawnService] Character hidden for demo spectator mode")
+end
+
 function PlayerSpawnService:SetupPlayer(player)
 	player.CharacterAdded:Connect(function(character)
 		task.wait(0.5)
+		if self.demoSpectatorMode then
+			self:HideCharacter(character)
+			print(string.format("[PlayerSpawnService] Player configured as demo spectator: %s", player.Name))
+			return
+		end
+
 		self:MoveCharacterToSpawn(character)
 
 		task.spawn(function()
@@ -97,6 +141,17 @@ function PlayerSpawnService:SetupPlayer(player)
 		end)
 	end)
 
+	if self.demoSpectatorMode then
+		if player.Character then
+			task.defer(function()
+				self:HideCharacter(player.Character)
+			end)
+		end
+
+		print(string.format("[PlayerSpawnService] Player configured as demo spectator: %s", player.Name))
+		return
+	end
+
 	if player.Character then
 		task.defer(function()
 			self:MoveCharacterToSpawn(player.Character)
@@ -115,6 +170,9 @@ function PlayerSpawnService:Init()
 	print("[PlayerSpawnService] FallenPartsDestroyHeight disabled for demo")
 
 	Players.CharacterAutoLoads = false
+	if self.demoSpectatorMode then
+		print("[PlayerSpawnService] Demo spectator mode enabled")
+	end
 	print("[PlayerSpawnService] CharacterAutoLoads disabled")
 
 	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
@@ -215,4 +273,3 @@ function PlayerSpawnService:Init()
 end
 
 return PlayerSpawnService
-

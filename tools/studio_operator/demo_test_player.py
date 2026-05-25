@@ -106,6 +106,11 @@ def ensure_studio_window_visible(report: dict[str, Any], state: dict[str, Any]) 
 		}
 		report["studio_window_before"] = studio_window_before
 
+		if "installer" in best["title"].lower():
+			report["studio_window_visible"] = False
+			report["studio_window_preflight_status"] = "STUDIO_INSTALLER_WINDOW_BLOCKED"
+			return False
+
 	is_offscreen = False
 	if best:
 		if best["left"] <= -10000 or best["top"] <= -10000:
@@ -142,6 +147,8 @@ def ensure_studio_window_visible(report: dict[str, Any], state: dict[str, Any]) 
 	if best_after:
 		if best_after["left"] <= -10000 or best_after["top"] <= -10000:
 			preflight_status = "STUDIO_WINDOW_OFFSCREEN"
+		elif "installer" in best_after["title"].lower():
+			preflight_status = "STUDIO_INSTALLER_WINDOW_BLOCKED"
 		elif best_after["width"] < 400 or best_after["height"] < 300:
 			preflight_status = "STUDIO_WINDOW_OFFSCREEN"
 		elif best_after["isMinimized"]:
@@ -492,18 +499,33 @@ def main() -> int:
 		"[EconomyService]",
 	]
 
-	client_markers = [
-		"[Client boot]",
-		"[Client] Demo camera activated",
+	spectator_markers = [
+		"[Client] Demo spectator camera activated",
+		"[Main] Demo spectator spawn ready",
+		"[Main] Demo map build requested",
 	]
 
-	all_gameplay_markers = important_markers + client_markers
+	gameplay_loop_markers = [
+		"[WaveService]",
+		"[TowerService]",
+		"[EnemyService]",
+	]
+
 	matched = report.get("matched_markers", [])
 
 	if report.get("result_status") == "DEMO_RECORDED":
-		if any(marker in matched for marker in important_markers):
+		spectator_hits = sum(1 for marker in spectator_markers if marker in matched)
+		gameplay_hits = sum(1 for marker in gameplay_loop_markers if marker in matched)
+
+		if spectator_hits >= 3 and gameplay_hits > 0:
+			report["play_status"] = "DEMO_RECORDED_SPECTATOR_GAMEPLAY_CONFIRMED"
+			report["video_score"] = 4
+		elif spectator_hits >= 3:
+			report["play_status"] = "DEMO_RECORDED_SPECTATOR_CONFIRMED"
+			report["video_score"] = 3
+		elif any(marker in matched for marker in important_markers):
 			report["play_status"] = "DEMO_RECORDED_PLAY_CONFIRMED"
-			report["video_score"] = 4 if any(marker in matched for marker in client_markers) else 3
+			report["video_score"] = 3
 		else:
 			report["play_status"] = "DEMO_RECORDED_PLAY_NOT_CONFIRMED"
 			report["video_score"] = 2

@@ -15,6 +15,7 @@ local WaveService = require(services:WaitForChild("WaveService"))
 local PlayerSpawnService = require(services:WaitForChild("PlayerSpawnService"))
 
 print(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
+print("[Main] Demo spectator bootstrap starting")
 
 local function runStep(name, callback)
 	print("[Main] Starting " .. name)
@@ -33,6 +34,7 @@ end)
 runStep("PlayerSpawnService:Init", function()
 	PlayerSpawnService:Init()
 end)
+print("[Main] Demo spectator spawn ready")
 
 runStep("MapService:Init", function()
 	MapService:Init()
@@ -61,6 +63,7 @@ end)
 runStep("MapService:BuildBacklundFogDistrict", function()
 	MapService:BuildBacklundFogDistrict()
 end)
+print("[Main] Demo map build requested")
 
 local pathPoints
 runStep("PathService:BuildBacklundPath", function()
@@ -87,4 +90,5 @@ runStep("WaveService:StartWaveLoop", function()
 	WaveService:StartWaveLoop(3)
 	print("[Main] Triggered wave loop")
 end)
+print("[Main] Demo wave loop requested")
 
