@@ -647,6 +647,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 - ✅ Для подготовки сцены перед Play
 - ❌ Требует ручного нажатия F5
 
+## Demo Autofix Loop
+
+Добавлен ограниченный автономный диагностический цикл для demo recorder. Он собирает проект, запускает assisted demo, читает `logs/demo_test_report.md`, агрегирует Roblox logs, проверяет MP4 metadata и пишет понятный отчёт без бесконечных попыток.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1 -DiagnoseOnly
+```
+
+Отчёты:
+
+- `logs/demo_autofix_report.md`
+- `logs/demo_test_report.md`
+- `logs/roblox_latest_markers.md`
+
+Политика безопасности описана в [DEMO_AUTOFIX_POLICY.md](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/docs/team/DEMO_AUTOFIX_POLICY.md). Loop не мержит PR, не удаляет файлы, не делает force push и не коммитит build/logs/videos.
+
 
 ## Safe PR Merge Manager
 

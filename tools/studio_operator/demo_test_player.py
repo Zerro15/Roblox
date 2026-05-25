@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime
@@ -299,6 +300,11 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- result status: `{report.get('result_status', 'unknown')}`",
 		f"- play status: `{report.get('play_status', 'unknown')}`",
 		f"- video usefulness score: `{report.get('video_score', 0)}/5`",
+		f"- diagnosis: `{report.get('diagnosis', 'UNKNOWN_FAILURE')}`",
+		f"- success criteria passed: `{report.get('success_criteria_passed', False)}`",
+		f"- checked log files count: `{report.get('checked_log_files_count', 0)}`",
+		f"- project markers count: `{report.get('project_markers_count', 0)}`",
+		f"- possible next fix: `{report.get('possible_next_fix', '')}`",
 		"",
 		"## Required Files",
 	]
@@ -326,6 +332,10 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 
 	lines.extend(["", "## Roblox Logs"])
 	lines.append(f"- marker report: `{report.get('marker_report_path', '')}`")
+	lines.append(f"- checked log files count: `{report.get('checked_log_files_count', 0)}`")
+	lines.append(f"- project markers count: `{report.get('project_markers_count', 0)}`")
+	for checked_file in report.get("checked_log_files", []):
+		lines.append(f"- checked: `{checked_file}`")
 	matched_markers = report.get("matched_markers", [])
 	lines.append(f"- matched markers: `{len(matched_markers)}` found")
 	if matched_markers:
@@ -400,6 +410,100 @@ def collect_markers(report: dict[str, Any], state: dict[str, Any]) -> None:
 	add_report(state, str(marker_report), "roblox_latest_markers")
 	report["marker_report_path"] = str(marker_report)
 	report["matched_markers"] = matched_markers
+	metadata_path = LOGS_DIR / "roblox_latest_markers.json"
+	report["checked_log_files_count"] = 0
+	report["project_markers_count"] = 0
+	report["checked_log_files"] = []
+	if metadata_path.exists():
+		try:
+			metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+			report["checked_log_files_count"] = len(metadata.get("checked_files", []))
+			report["project_markers_count"] = int(metadata.get("project_markers_count", 0))
+			report["checked_log_files"] = [item.get("path", "") for item in metadata.get("checked_files", [])]
+		except (OSError, ValueError, TypeError):
+			report["checked_log_files_count"] = 0
+			report["project_markers_count"] = 0
+
+
+def diagnose_demo_report(report: dict[str, Any]) -> str:
+	if report.get("build_status") == "failed":
+		return "BUILD_FAILED"
+	if report.get("studio_window_visible") is False:
+		return "STUDIO_WINDOW_NOT_VISIBLE"
+
+	selected_title = str(report.get("selected_studio_window_title", "")).lower()
+	if selected_title and ("game.rbxlx" not in selected_title or "roblox studio" not in selected_title):
+		return "WRONG_STUDIO_WINDOW"
+
+	if not report.get("f5_pressed", False):
+		return "F5_NOT_PRESSED"
+
+	matched = report.get("matched_markers", [])
+	project_markers_count = int(report.get("project_markers_count", 0))
+	if report.get("f5_pressed") and project_markers_count == 0:
+		if matched and all(marker.lower() in ("warn", "error") for marker in matched):
+			return "ONLY_WARN_ERROR_MARKERS"
+		return "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED"
+
+	if "[Server boot]" not in matched:
+		return "SERVER_BOOT_NOT_FOUND"
+	if "[Client boot]" not in matched:
+		return "CLIENT_BOOT_NOT_FOUND"
+	if "[Client] Demo spectator camera activated" not in matched:
+		return "DEMO_CAMERA_NOT_FOUND"
+	if "[PlayerSpawnService]" not in matched and "[PlayerSpawnService] Demo spectator mode enabled" not in matched:
+		return "PLAYERSPAWN_NOT_FOUND"
+	if "[Main] Demo map build requested" not in matched and "[MapService]" not in matched:
+		return "MAP_NOT_BUILT"
+	if "[WaveService]" not in matched:
+		return "WAVE_NOT_STARTED"
+
+	return "OK"
+
+
+def evaluate_success_criteria(report: dict[str, Any]) -> bool:
+	matched = report.get("matched_markers", [])
+	required_markers = [
+		"[Server boot]",
+		"[Main] Demo spectator bootstrap starting",
+		"[Main] Demo spectator spawn ready",
+		"[PlayerSpawnService] Demo spectator mode enabled",
+		"[Client] Demo spectator camera activated",
+		"[Main] Demo map build requested",
+		"[WaveService]",
+		"[TowerService]",
+		"[EnemyService]",
+	]
+	marker_hits = sum(1 for marker in required_markers if marker in matched)
+	return (
+		report.get("build_status") == "ok"
+		and bool(report.get("recording_path"))
+		and report.get("f5_pressed") is True
+		and "F5_PRESSED" in str(report.get("auto_play_status", ""))
+		and marker_hits >= 3
+		and int(report.get("video_score", 0)) >= 3
+	)
+
+
+def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
+	fixes = {
+		"BUILD_FAILED": "Inspect Rojo build output; do not run demo until build passes.",
+		"STUDIO_WINDOW_NOT_VISIBLE": "Close extra Studio windows and keep build/game.rbxlx visible.",
+		"FOCUS_FAILED": "Retry safe click-focus and inspect selected_studio_window_title.",
+		"F5_NOT_PRESSED": "Use assisted click-focus mode or manually focus Studio during fallback wait.",
+		"WRONG_STUDIO_WINDOW": "Close AutoRecovery/Installer windows so build/game.rbxlx is selected.",
+		"ONLY_WARN_ERROR_MARKERS": "Inspect expanded roblox_latest_markers.md checked files; Play may not have started runtime or logs may be elsewhere.",
+		"PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "Open Studio Output and check whether server/client scripts ran after F5.",
+		"SERVER_BOOT_NOT_FOUND": "Verify Main.server.lua is mapped into ServerScriptService and prints [Server boot].",
+		"CLIENT_BOOT_NOT_FOUND": "Verify Main.client.lua is mapped into StarterPlayerScripts and prints [Client boot].",
+		"DEMO_CAMERA_NOT_FOUND": "Verify demo spectator camera script runs and can access Workspace.CurrentCamera.",
+		"PLAYERSPAWN_NOT_FOUND": "Verify PlayerSpawnService:Init is called in Main.server.lua.",
+		"MAP_NOT_BUILT": "Verify MapService:BuildBacklundFogDistrict runs inside Main.server.lua.",
+		"WAVE_NOT_STARTED": "Verify WaveService:StartWaveLoop runs after path/tower setup.",
+		"VIDEO_NOT_RECORDED": "Inspect screen_recorder output and disk permissions.",
+		"VIDEO_TOO_SMALL": "Rerun with 45 seconds in the autofix loop.",
+	}
+	return fixes.get(diagnosis, "No safe automatic fix identified; inspect demo_autofix_report.md.")
 
 
 def observe_mode(report: dict[str, Any], state: dict[str, Any]) -> None:
@@ -659,6 +763,9 @@ def main() -> int:
 		report["play_status"] = report.get("result_status", "UNKNOWN")
 		report["video_score"] = 0
 
+	report["diagnosis"] = diagnose_demo_report(report)
+	report["success_criteria_passed"] = evaluate_success_criteria(report)
+	report["possible_next_fix"] = possible_next_fix_for_diagnosis(report["diagnosis"])
 	report["windows"] = find_windows()
 	report["relevant_processes"] = list_relevant_processes()
 	state["last_active_window"] = get_active_window_title()
