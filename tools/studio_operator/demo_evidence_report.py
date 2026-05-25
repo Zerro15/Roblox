@@ -41,6 +41,10 @@ KEY_MARKERS = [
     "[DemoGameplay] Tower attack fired",
     "[DemoGameplay] Enemy damaged",
     "[DemoGameplay] Wave completed",
+    "[Hub] Hub ready",
+    "[Hub] Portal ready",
+    "[Hub] Start defense clicked",
+    "[Hub] Defense started",
     "[Playable] Game started",
     "[Playable] Camera ready",
     "[Playable] UI ready",
@@ -66,6 +70,19 @@ KEY_MARKERS = [
     "[EnemyService]",
     "[Client boot]",
     "[Client] Demo spectator camera activated",
+]
+
+HUB_FLOW_REQUIRED_MARKERS = [
+    "[Hub] Hub ready",
+    "[Hub] Portal ready",
+    "[Hub] Defense started",
+    "[Playable] Game started",
+    "[Playable] Camera ready",
+    "[Playable] UI ready",
+    "[Playable] Wave started",
+    "[Playable] Enemy spawned",
+    "[Playable] Tower attack fired",
+    "[Playable] Enemy damaged",
 ]
 
 
@@ -152,11 +169,14 @@ def extract_marker_summary(metadata: dict[str, Any]) -> dict[str, Any]:
     project_markers = metadata.get("project_markers", []) or []
     missing_expected = metadata.get("missing_expected_markers", []) or []
     important_found = [marker for marker in KEY_MARKERS if marker in project_markers]
+    missing_hub_flow = [marker for marker in HUB_FLOW_REQUIRED_MARKERS if marker not in project_markers]
     return {
         "project_markers_count": metadata.get("project_markers_count", 0),
         "runtime_diagnosis": metadata.get("runtime_diagnosis", "not available"),
         "important_markers_found": important_found,
         "missing_expected_markers": missing_expected,
+        "missing_hub_flow_markers": missing_hub_flow,
+        "hub_playable_confirmed": not missing_hub_flow,
         "checked_log_files_count": len(metadata.get("checked_files", []) or []),
     }
 
@@ -164,10 +184,15 @@ def extract_marker_summary(metadata: dict[str, Any]) -> dict[str, Any]:
 def classify_result(smoke: dict[str, str], demo_fields: dict[str, str], marker_summary: dict[str, Any], recording: dict[str, Any]) -> str:
     smoke_ok = smoke.get("result") == "PASS"
     demo_ok = demo_fields.get("diagnosis") == "OK"
+    success_ok = demo_fields.get("success_criteria_passed") == "True"
+    hub_playable_ok = bool(marker_summary.get("hub_playable_confirmed"))
+    no_missing_expected = not marker_summary.get("missing_expected_markers")
     marker_count = int(marker_summary.get("project_markers_count", 0) or 0)
-    has_video = bool(recording.get("path")) and int(recording.get("size_bytes", 0)) > 0
+    has_video = bool(recording.get("path")) and int(recording.get("size_bytes", 0)) >= 300_000
 
     if smoke_ok and demo_ok and marker_count >= 3 and has_video:
+        return "OK"
+    if smoke_ok and success_ok and hub_playable_ok and no_missing_expected and marker_count >= 3 and has_video:
         return "OK"
     if smoke_ok and (marker_count > 0 or has_video):
         return "PARTIAL"
@@ -263,6 +288,7 @@ def write_markdown(evidence: dict[str, Any]) -> Path:
         f"- project markers count: `{markers['project_markers_count']}`",
         f"- checked log files count: `{markers['checked_log_files_count']}`",
         f"- runtime diagnosis: `{markers['runtime_diagnosis']}`",
+        f"- hub/playable confirmation: `{'Hub and playable runtime markers confirmed' if markers['hub_playable_confirmed'] else 'missing hub/playable runtime markers'}`",
         "",
         "### Important Markers Found",
     ]
@@ -276,6 +302,13 @@ def write_markdown(evidence: dict[str, Any]) -> Path:
     lines.extend(["", "### Missing Expected Markers"])
     if markers["missing_expected_markers"]:
         for marker in markers["missing_expected_markers"]:
+            lines.append(f"- `{marker}`")
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "### Missing Hub/Playable Flow Markers"])
+    if markers["missing_hub_flow_markers"]:
+        for marker in markers["missing_hub_flow_markers"]:
             lines.append(f"- `{marker}`")
     else:
         lines.append("- none")
@@ -310,7 +343,7 @@ def write_markdown(evidence: dict[str, Any]) -> Path:
         [
             "",
             "## Interpretation",
-            "- `OK` means smoke passed, demo diagnosis is OK, runtime markers were found, and a video artifact exists.",
+            "- `OK` means smoke passed, a non-trivial video artifact exists, and either demo diagnosis is OK or hub/playable runtime markers are fully confirmed.",
             "- `PARTIAL` means some evidence exists but at least one expected confirmation is missing.",
             "- `FAIL` means the current reports do not prove the demo pipeline worked.",
         ]

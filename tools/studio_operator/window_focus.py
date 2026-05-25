@@ -84,7 +84,7 @@ def find_ignored_studio_windows() -> list[dict[str, Any]]:
     return ignored
 
 
-def _score_window(item: dict[str, Any]) -> tuple[int, int]:
+def _score_window(item: dict[str, Any]) -> tuple[int, int, int]:
     title = item["title"].lower()
     score = 0
 
@@ -112,7 +112,8 @@ def _score_window(item: dict[str, Any]) -> tuple[int, int]:
         score -= 50
 
     area = max(item["width"], 0) * max(item["height"], 0)
-    return score, area
+    # Prefer recently opened Studio windows over stale maximized copies.
+    return score, 0 if item["left"] <= -30000 or item["top"] <= -30000 else 1, area
 
 
 def choose_best_studio_window() -> dict[str, Any] | None:

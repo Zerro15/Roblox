@@ -28,6 +28,20 @@ local function createPart(parent, name, size, position, color, transparency, mat
 	return part
 end
 
+local function makeSpawnHelperNonObstructive(part, size, position, canCollide)
+	if not part then
+		return
+	end
+
+	part.Size = size
+	part.Position = position
+	part.Transparency = 1
+	part.CanCollide = canCollide == true
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+end
+
 function PlayerSpawnService:MoveCharacterToSpawn(character)
 	if not character or not self.spawnCFrame then
 		return
@@ -180,28 +194,29 @@ function PlayerSpawnService:Init()
 		demoSpawnPlatform = createPart(
 			demoRoot,
 			"DemoSpawnPlatform",
-			Vector3.new(120, 6, 120),
-			Vector3.new(0, 20, 0),
+			Vector3.new(8, 1, 8),
+			Vector3.new(0, -420, 0),
 			Color3.fromRGB(80, 120, 90),
-			0,
+			1,
 			Enum.Material.Concrete,
-			true
+			false
 		)
 	end
+	makeSpawnHelperNonObstructive(demoSpawnPlatform, Vector3.new(8, 1, 8), Vector3.new(0, -420, 0), false)
 
 	local demoSpawnLocation = demoRoot:FindFirstChild("DemoSpawnLocation")
 	if not demoSpawnLocation then
 		demoSpawnLocation = Instance.new("SpawnLocation")
 		demoSpawnLocation.Name = "DemoSpawnLocation"
 		demoSpawnLocation.Shape = Enum.PartType.Block
-		demoSpawnLocation.Size = Vector3.new(20, 2, 20)
-		demoSpawnLocation.Position = Vector3.new(0, 27, 0)
+		demoSpawnLocation.Size = Vector3.new(6, 1, 6)
+		demoSpawnLocation.Position = Vector3.new(0, -414, 0)
 		demoSpawnLocation.Color = Color3.fromRGB(60, 180, 80)
 		demoSpawnLocation.Anchored = true
-		demoSpawnLocation.CanCollide = true
+		demoSpawnLocation.CanCollide = false
 		demoSpawnLocation.TopSurface = Enum.SurfaceType.Smooth
 		demoSpawnLocation.BottomSurface = Enum.SurfaceType.Smooth
-		demoSpawnLocation.Transparency = 0
+		demoSpawnLocation.Transparency = 1
 		demoSpawnLocation.Material = Enum.Material.SmoothPlastic
 		demoSpawnLocation.Neutral = true
 		demoSpawnLocation.AllowTeamChangeOnTouch = false
@@ -209,50 +224,55 @@ function PlayerSpawnService:Init()
 		demoSpawnLocation.Duration = 0
 		demoSpawnLocation.Parent = demoRoot
 	end
+	makeSpawnHelperNonObstructive(demoSpawnLocation, Vector3.new(6, 1, 6), Vector3.new(0, -414, 0), false)
+	demoSpawnLocation.Enabled = true
 
 	local demoSafetyFloor = demoRoot:FindFirstChild("DemoSafetyFloor")
 	if not demoSafetyFloor then
 		demoSafetyFloor = createPart(
 			demoRoot,
 			"DemoSafetyFloor",
-			Vector3.new(1000, 8, 1000),
-			Vector3.new(0, -50, 0),
+			Vector3.new(80, 2, 80),
+			Vector3.new(0, -540, 0),
 			Color3.fromRGB(120, 40, 40),
-			0.5,
+			1,
 			Enum.Material.SmoothPlastic,
 			true
 		)
 	end
+	makeSpawnHelperNonObstructive(demoSafetyFloor, Vector3.new(80, 2, 80), Vector3.new(0, -540, 0), true)
 
 	local demoCameraTarget = demoRoot:FindFirstChild("DemoCameraTarget")
 	if not demoCameraTarget then
 		demoCameraTarget = createPart(
 			demoRoot,
 			"DemoCameraTarget",
-			Vector3.new(6, 6, 6),
-			Vector3.new(0, 35, 0),
+			Vector3.new(2, 2, 2),
+			Vector3.new(0, -408, 0),
 			Color3.fromRGB(255, 220, 80),
-			0.2,
+			1,
 			Enum.Material.SmoothPlastic,
 			false
 		)
 	end
+	makeSpawnHelperNonObstructive(demoCameraTarget, Vector3.new(2, 2, 2), Vector3.new(0, -408, 0), false)
 
 	local demoDebugPole = demoRoot:FindFirstChild("DemoDebugPole")
 	if not demoDebugPole then
 		demoDebugPole = createPart(
 			demoRoot,
 			"DemoDebugPole",
-			Vector3.new(2, 80, 2),
-			Vector3.new(20, 60, 0),
+			Vector3.new(1, 1, 1),
+			Vector3.new(0, -406, 0),
 			Color3.fromRGB(255, 0, 0),
-			0,
+			1,
 			Enum.Material.SmoothPlastic,
 			false
 		)
 	end
+	makeSpawnHelperNonObstructive(demoDebugPole, Vector3.new(1, 1, 1), Vector3.new(0, -406, 0), false)
 
-	self.spawnCFrame = CFrame.new(Vector3.new(0, 35, 0))
+	self.spawnCFrame = CFrame.new(Vector3.new(0, -410, 0))
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		self:SetupPlayer(player)

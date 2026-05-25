@@ -11,6 +11,7 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local PlaceTowerRequest = Remotes:WaitForChild("PlaceTowerRequest")
 local SellTowerRequest = Remotes:WaitForChild("SellTowerRequest")
 local TowerSelectedNotify = Remotes:WaitForChild("TowerSelectedNotify")
+local StartDefenseRequest = Remotes:WaitForChild("StartDefenseRequest")
 
 print(string.format("[Client boot] %s v%s", GameConfig.GameName, GameConfig.Version))
 warn(string.format("[Client boot] %s v%s", GameConfig.GameName, GameConfig.Version))
@@ -28,6 +29,8 @@ local cameraDragging = false
 local lastDragPosition = nil
 
 local DEFAULT_CAMERA_OFFSET = Vector3.new(-118, 122, -118)
+local HUB_CAMERA_FOCUS = Vector3.new(155, 10, -92)
+local HUB_CAMERA_ZOOM = 0.82
 local CAMERA_MIN_ZOOM = 0.65
 local CAMERA_MAX_ZOOM = 1.55
 local CAMERA_PAN_SPEED = 70
@@ -72,8 +75,14 @@ local function applyPlayableCamera()
 end
 
 local function resetPlayableCamera()
-	cameraFocus = getPathCenter() + Vector3.new(0, 5, 0)
-	cameraZoom = 1
+	local runtime = Workspace:FindFirstChild(GameConfig.RuntimeFolderName)
+	if runtime and runtime:GetAttribute("GameState") == "Lobby" then
+		cameraFocus = HUB_CAMERA_FOCUS
+		cameraZoom = HUB_CAMERA_ZOOM
+	else
+		cameraFocus = getPathCenter() + Vector3.new(0, 5, 0)
+		cameraZoom = 1
+	end
 	cameraReady = true
 	applyPlayableCamera()
 end
@@ -248,6 +257,57 @@ local function setupPlayableUi()
 	controls.Text = "Нажми синюю площадку. B - построить, S - продать, ESC - снять выбор, R - камера, колесо - зум."
 	controls.Parent = screenGui
 
+	local lobbyPanel = Instance.new("Frame")
+	lobbyPanel.Name = "LobbyPanel"
+	lobbyPanel.Size = UDim2.new(0, 560, 0, 260)
+	lobbyPanel.Position = UDim2.new(0.5, -280, 0, 26)
+	lobbyPanel.BackgroundColor3 = Color3.fromRGB(19, 14, 18)
+	lobbyPanel.BackgroundTransparency = 0.05
+	lobbyPanel.BorderSizePixel = 0
+	lobbyPanel.Parent = screenGui
+
+	local lobbyTitle = Instance.new("TextLabel")
+	lobbyTitle.Name = "Title"
+	lobbyTitle.Size = UDim2.new(1, -32, 0, 54)
+	lobbyTitle.Position = UDim2.new(0, 16, 0, 14)
+	lobbyTitle.BackgroundTransparency = 1
+	lobbyTitle.Text = "Штаб Тайной Обороны"
+	lobbyTitle.TextColor3 = Color3.fromRGB(244, 210, 128)
+	lobbyTitle.TextScaled = true
+	lobbyTitle.Font = Enum.Font.GothamBlack
+	lobbyTitle.Parent = lobbyPanel
+
+	local lobbySubtitle = Instance.new("TextLabel")
+	lobbySubtitle.Name = "Subtitle"
+	lobbySubtitle.Size = UDim2.new(1, -32, 0, 42)
+	lobbySubtitle.Position = UDim2.new(0, 16, 0, 76)
+	lobbySubtitle.BackgroundTransparency = 1
+	lobbySubtitle.Text = "Туман сгущается. Врата нужно удержать."
+	lobbySubtitle.TextColor3 = Color3.fromRGB(128, 238, 226)
+	lobbySubtitle.TextScaled = true
+	lobbySubtitle.Font = Enum.Font.GothamBold
+	lobbySubtitle.Parent = lobbyPanel
+
+	local lobbyInstruction = Instance.new("TextLabel")
+	lobbyInstruction.Name = "Instruction"
+	lobbyInstruction.Size = UDim2.new(1, -32, 0, 58)
+	lobbyInstruction.Position = UDim2.new(0, 16, 0, 124)
+	lobbyInstruction.BackgroundTransparency = 1
+	lobbyInstruction.Text = "После начала боя: ЛКМ — выбрать, B — построить, S — продать, R — камера, ESC — снять выбор."
+	lobbyInstruction.TextColor3 = Color3.fromRGB(223, 214, 190)
+	lobbyInstruction.TextScaled = true
+	lobbyInstruction.TextWrapped = true
+	lobbyInstruction.Font = Enum.Font.Gotham
+	lobbyInstruction.Parent = lobbyPanel
+
+	local startDefenseBtn = createButton(
+		lobbyPanel, "StartDefenseBtn",
+		UDim2.new(0.5, -135, 1, -58),
+		UDim2.new(0, 270, 0, 44),
+		"Начать оборону",
+		Color3.fromRGB(31, 116, 112)
+	)
+
 	-- Selection panel (right side)
 	local selectionPanel = Instance.new("Frame")
 	selectionPanel.Name = "SelectionPanel"
@@ -337,6 +397,18 @@ local function setupPlayableUi()
 	selectedTowerBox.Parent = Workspace.CurrentCamera or Workspace
 
 	local function updateHud()
+		local isLobby = runtime:GetAttribute("GameState") == "Lobby"
+		lobbyPanel.Visible = isLobby
+		moneyLabel.Visible = not isLobby
+		waveLabel.Visible = not isLobby
+		baseLabel.Visible = not isLobby
+		stateLabel.Visible = not isLobby
+		controls.Visible = not isLobby
+		quickBuildBtn.Visible = not isLobby
+		if isLobby then
+			selectionPanel.Visible = false
+		end
+
 		moneyLabel.Text = string.format("Деньги: $%s", tostring(runtime:GetAttribute("Money") or 0))
 		waveLabel.Text = string.format("Волна: %s", tostring(runtime:GetAttribute("Wave") or 0))
 		baseLabel.Text = string.format(
@@ -348,7 +420,12 @@ local function setupPlayableUi()
 	end
 
 	updateHud()
-	runtime.AttributeChanged:Connect(updateHud)
+	runtime.AttributeChanged:Connect(function(attributeName)
+		updateHud()
+		if attributeName == "GameState" then
+			resetPlayableCamera()
+		end
+	end)
 
 	local function clearSelection()
 		selectedPadName = nil
@@ -420,6 +497,13 @@ local function setupPlayableUi()
 		PlaceTowerRequest:FireServer("BasicTower", nil)
 	end)
 
+	startDefenseBtn.MouseButton1Click:Connect(function()
+		print("[Hub] Start defense clicked")
+		warn("[Hub] Start defense clicked")
+		StartDefenseRequest:FireServer()
+		lobbyPanel.Visible = false
+	end)
+
 	local function buildSelectedOrQuick()
 		PlaceTowerRequest:FireServer("BasicTower", selectedPadName)
 		if selectedPadName then
@@ -461,8 +545,14 @@ local function setupPlayableUi()
 		end
 
 		if input.KeyCode == Enum.KeyCode.B then
+			if runtime:GetAttribute("GameState") == "Lobby" then
+				return
+			end
 			buildSelectedOrQuick()
 		elseif input.KeyCode == Enum.KeyCode.S then
+			if runtime:GetAttribute("GameState") == "Lobby" then
+				return
+			end
 			sellSelectedTower()
 		elseif input.KeyCode == Enum.KeyCode.Escape then
 			clearSelection()

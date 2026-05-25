@@ -167,7 +167,9 @@ def _score_window(window: dict[str, Any]) -> tuple[int, int, int]:
         score -= 5000
     rect = window["rect"]
     area = max(rect["width"], 0) * max(rect["height"], 0)
-    return score, area, int(window.get("pid", 0))
+    # Prefer the newest Studio process for identical build/game.rbxlx titles;
+    # older maximized windows can otherwise hide fresh builds opened by the demo.
+    return score, int(window.get("pid", 0)), area
 
 
 def find_target_studio_window() -> dict[str, Any] | None:
