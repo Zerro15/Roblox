@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 logs/screenshots/
 logs/recordings/
+logs/*.md
+logs/*.json
 logs/*.log
 logs/studio_operator_state.json
 logs/roblox_latest_markers.md
@@ -12,6 +14,7 @@ logs/studio_operator_report.md
 logs/demo_test_report.md
 tools/logs/
 build/*
+build/*.rbxlx
 *.rbxlx
 *.rbxl
 *.mp4
@@ -20,6 +23,8 @@ build/*
 *.mkv
 .env
 .env.*
+agentrouter-*.csv
+claude-agentrouter-*.csv
 .DS_Store
 Thumbs.db
 .git-backups/
