@@ -15,6 +15,9 @@ PRIMARY_KEYWORDS = (
 
 DISALLOWED_KEYWORDS = (
     "installer",
+    "download and install",
+    "setup",
+    "updater",
 )
 
 
@@ -55,15 +58,15 @@ def _score_window(item: dict[str, Any]) -> tuple[int, int]:
     score = 0
 
     if "game.rbxlx" in title:
-        score += 100
+        score += 200
     if ".rbxlx" in title:
-        score += 80
+        score += 150
     if "new-chat" in title:
-        score += 60
+        score += 100
     if "roblox studio" in title:
-        score += 40
+        score += 80
     if any(keyword in title for keyword in DISALLOWED_KEYWORDS):
-        score -= 1000
+        score -= 5000
     if item["left"] <= -30000 or item["top"] <= -30000:
         score -= 200
     if item["isMinimized"]:
@@ -100,7 +103,9 @@ def is_active_studio_window() -> bool:
         return False
     if any(keyword in title for keyword in DISALLOWED_KEYWORDS):
         return False
-    return any(keyword in title for keyword in ("roblox studio", "game.rbxlx", ".rbxlx", "new-chat"))
+    has_studio = any(keyword in title for keyword in ("roblox studio", "game.rbxlx", ".rbxlx", "new-chat"))
+    has_place = any(keyword in title for keyword in ("game.rbxlx", ".rbxlx"))
+    return has_studio and has_place
 
 
 def focus_window(window: Any) -> bool:

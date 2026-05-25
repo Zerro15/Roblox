@@ -43,17 +43,29 @@ function PlayerSpawnService:MoveCharacterToSpawn(character)
 		return
 	end
 
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildOfClass("BasePart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-	if humanoidRootPart then
-		character:PivotTo(self.spawnCFrame)
-		humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
-		humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then
+		humanoidRootPart = character:WaitForChild("HumanoidRootPart", 10)
 	end
+
+	if not humanoidRootPart then
+		warn("[PlayerSpawnService] HumanoidRootPart not found")
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 
 	if humanoid then
 		humanoid.Health = humanoid.MaxHealth
+		humanoid.PlatformStand = false
+		humanoid.Sit = false
+	end
+
+	for i = 1, 3 do
+		character:PivotTo(self.spawnCFrame)
+		humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+		humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+		task.wait(0.2)
 	end
 
 	print("[PlayerSpawnService] Character moved to demo spawn")
@@ -61,17 +73,29 @@ end
 
 function PlayerSpawnService:SetupPlayer(player)
 	player.CharacterAdded:Connect(function(character)
-		task.wait(0.2)
+		task.wait(0.5)
 		self:MoveCharacterToSpawn(character)
 
 		task.spawn(function()
 			while character.Parent do
 				local hrp = character:FindFirstChild("HumanoidRootPart")
-				if hrp and hrp.Position.Y < -20 then
-					self:MoveCharacterToSpawn(character)
-					warn("[PlayerSpawnService] Character fell below safety floor; moved back to spawn")
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+				if hrp then
+					local y = hrp.Position.Y
+					if y < 0 or y > 300 then
+						self:MoveCharacterToSpawn(character)
+						print("[PlayerSpawnService] Character unsafe position; moving back to spawn")
+					end
 				end
-				task.wait(1)
+
+				if humanoid and humanoid.Health <= 0 then
+					player:LoadCharacter()
+					task.wait(0.5)
+					self:MoveCharacterToSpawn(character)
+				end
+
+				task.wait(0.5)
 			end
 		end)
 	end)
@@ -82,6 +106,7 @@ function PlayerSpawnService:SetupPlayer(player)
 		end)
 	else
 		task.defer(function()
+			print(string.format("[PlayerSpawnService] Loading character: %s", player.Name))
 			player:LoadCharacter()
 		end)
 	end
@@ -90,6 +115,9 @@ function PlayerSpawnService:SetupPlayer(player)
 end
 
 function PlayerSpawnService:Init()
+	Players.CharacterAutoLoads = false
+	print("[PlayerSpawnService] CharacterAutoLoads disabled")
+
 	local runtimeFolder = RuntimeService:GetOrCreateRuntimeFolder()
 	local playerSpawnFolder = ensureFolder(runtimeFolder, "PlayerSpawn")
 
@@ -100,20 +128,20 @@ function PlayerSpawnService:Init()
 		demoSpawnPlatform = createPart(
 			playerSpawnFolder,
 			"DemoSpawnPlatform",
-			Vector3.new(40, 2, 40),
+			Vector3.new(80, 4, 80),
 			spawnPlatformPosition,
-			0.35,
+			0,
 			Enum.Material.SmoothPlastic
 		)
 	end
 
-	local spawnLocationPosition = spawnPlatformPosition + Vector3.new(0, 3, 0)
+	local spawnLocationPosition = Vector3.new(0, 14, 0)
 	local demoSpawnLocation = playerSpawnFolder:FindFirstChild("DemoSpawnLocation")
 	if not demoSpawnLocation then
 		demoSpawnLocation = Instance.new("SpawnLocation")
 		demoSpawnLocation.Name = "DemoSpawnLocation"
 		demoSpawnLocation.Shape = Enum.PartType.Block
-		demoSpawnLocation.Size = Vector3.new(12, 1, 12)
+		demoSpawnLocation.Size = Vector3.new(16, 1, 16)
 		demoSpawnLocation.Position = spawnLocationPosition
 		demoSpawnLocation.Anchored = true
 		demoSpawnLocation.CanCollide = true
@@ -123,7 +151,8 @@ function PlayerSpawnService:Init()
 		demoSpawnLocation.Material = Enum.Material.SmoothPlastic
 		demoSpawnLocation.Neutral = true
 		demoSpawnLocation.AllowTeamChangeOnTouch = false
-		demoSpawnLocation.CanCollide = true
+		demoSpawnLocation.Enabled = true
+		demoSpawnLocation.Duration = 0
 		demoSpawnLocation.Parent = playerSpawnFolder
 	end
 
@@ -132,14 +161,14 @@ function PlayerSpawnService:Init()
 		safetyFloor = createPart(
 			playerSpawnFolder,
 			"DemoSafetyFloor",
-			Vector3.new(300, 2, 300),
-			Vector3.new(0, -10, 0),
+			Vector3.new(500, 4, 500),
+			Vector3.new(0, -20, 0),
 			1,
 			Enum.Material.SmoothPlastic
 		)
 	end
 
-	self.spawnCFrame = CFrame.new(spawnLocationPosition + Vector3.new(0, 5, 0))
+	self.spawnCFrame = CFrame.new(spawnLocationPosition + Vector3.new(0, 8, 0))
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		self:SetupPlayer(player)
