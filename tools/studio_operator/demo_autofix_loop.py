@@ -20,15 +20,12 @@ MARKER_METADATA_PATH = LOGS_DIR / "roblox_latest_markers.json"
 RECORDINGS_DIR = LOGS_DIR / "recordings"
 
 SUCCESS_MARKERS = [
-    "[Server boot]",
-    "[Main] Demo spectator bootstrap starting",
-    "[Main] Demo spectator spawn ready",
-    "[PlayerSpawnService] Demo spectator mode enabled",
+    "[DemoDiagnostics] Init",
+    "[DemoDiagnostics] ServerBootBeacon marked",
+    "[DemoDiagnostics] PlayerSpawnBeacon marked",
+    "[DemoDiagnostics] MapBuildBeacon marked",
+    "[DemoDiagnostics] WaveLoopBeacon marked",
     "[Client] Demo spectator camera activated",
-    "[Main] Demo map build requested",
-    "[WaveService]",
-    "[TowerService]",
-    "[EnemyService]",
 ]
 
 DIAGNOSES = [
@@ -47,6 +44,8 @@ DIAGNOSES = [
     "VIDEO_TOO_SMALL",
     "ONLY_WARN_ERROR_MARKERS",
     "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED",
+    "RUNTIME_MARKERS_NOT_CAPTURED",
+    "PARTIAL_RUNTIME_CONFIRMED",
     "UNKNOWN_FAILURE",
     "OK",
 ]
@@ -120,19 +119,17 @@ def diagnose() -> dict[str, Any]:
     score = int_prefix(fields.get("video_usefulness_score", "0"))
     project_marker_count = int(fields.get("project_markers_count", marker_metadata.get("project_markers_count", 0) or 0))
 
-    diagnosis = fields.get("diagnosis", "")
-    if not diagnosis or diagnosis not in DIAGNOSES:
-        diagnosis = classify_failure(
-            build_status=build_status,
-            selected_title=selected_title,
-            f5_pressed=f5_pressed,
-            auto_play_status=auto_play_status,
-            recording=recording,
-            recording_size=recording.stat().st_size if recording and recording.exists() else 0,
-            matched_markers=matched_markers,
-            project_markers=project_markers,
-            project_marker_count=project_marker_count,
-        )
+    diagnosis = classify_failure(
+        build_status=build_status,
+        selected_title=selected_title,
+        f5_pressed=f5_pressed,
+        auto_play_status=auto_play_status,
+        recording=recording,
+        recording_size=recording.stat().st_size if recording and recording.exists() else 0,
+        matched_markers=matched_markers,
+        project_markers=project_markers,
+        project_marker_count=project_marker_count,
+    )
 
     success = success_criteria(
         build_status=build_status,
@@ -188,10 +185,12 @@ def classify_failure(
     if recording_size < 300_000:
         return "VIDEO_TOO_SMALL"
     if project_marker_count == 0:
-        if matched_markers and all(marker.lower() in ("warn", "error") for marker in matched_markers):
-            return "ONLY_WARN_ERROR_MARKERS"
-        return "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED"
-    if "[Server boot]" not in project_markers:
+        return "RUNTIME_MARKERS_NOT_CAPTURED"
+    if project_marker_count < 3:
+        return "PARTIAL_RUNTIME_CONFIRMED"
+    if "[DemoDiagnostics] WaveLoopBeacon marked" not in project_markers:
+        return "PARTIAL_RUNTIME_CONFIRMED"
+    if "[Server boot]" not in project_markers and "[DemoDiagnostics] ServerBootBeacon marked" not in project_markers:
         return "SERVER_BOOT_NOT_FOUND"
     if "[Client boot]" not in project_markers:
         return "CLIENT_BOOT_NOT_FOUND"
@@ -231,6 +230,8 @@ def safe_fix_strategy(diagnosis_name: str, attempt: int) -> dict[str, Any]:
         "F5_NOT_PRESSED": "No source edit applied. Rerun with assisted click-focus and keep build/game.rbxlx visible.",
         "ONLY_WARN_ERROR_MARKERS": "No gameplay edit applied. Expanded Roblox log aggregation is active; next step is to inspect checked log files and Studio Output.",
         "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "No gameplay edit applied. Runtime may not have started or logs may be in another file.",
+        "RUNTIME_MARKERS_NOT_CAPTURED": "No gameplay edit applied. F5/video succeeded, but warn-based runtime markers were not captured.",
+        "PARTIAL_RUNTIME_CONFIRMED": "No gameplay edit applied. Some runtime markers were found; inspect which beacon is missing.",
         "SERVER_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.server.lua mapping and [Server boot] print manually.",
         "CLIENT_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.client.lua mapping and [Client boot] print manually.",
         "DEMO_CAMERA_NOT_FOUND": "No automatic gameplay edit applied. Verify Scriptable camera execution in Studio Output.",
@@ -309,6 +310,13 @@ def write_autofix_report(attempts: list[dict[str, Any]], fixes: list[dict[str, A
         f"- f5 pressed: `{latest.get('f5_pressed', False)}`",
         f"- auto-play status: `{latest.get('auto_play_status', '')}`",
         f"- project markers count: `{latest.get('project_markers_count', 0)}`",
+        "",
+        "## Expected Visual Runtime Beacons",
+        "- Blue `ServerBootBeacon` near `Workspace/DemoDiagnostics`",
+        "- Green `PlayerSpawnBeacon` near `Workspace/DemoDiagnostics`",
+        "- Yellow `MapBuildBeacon` near `Workspace/DemoDiagnostics`",
+        "- Red `WaveLoopBeacon` near `Workspace/DemoDiagnostics`",
+        "- UI text: `DEMO SPECTATOR CAMERA ACTIVE`",
         "",
         "## Attempts",
     ]

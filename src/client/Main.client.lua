@@ -1,10 +1,48 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 
 print(string.format("[Client boot] %s v%s", GameConfig.GameName, GameConfig.Version))
+warn(string.format("[Client boot] %s v%s", GameConfig.GameName, GameConfig.Version))
+
+local function createDemoStatusGui()
+	local localPlayer = Players.LocalPlayer
+	if not localPlayer then
+		return
+	end
+
+	local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui", 10)
+	if not playerGui then
+		return
+	end
+
+	local existing = playerGui:FindFirstChild("DemoStatusGui")
+	if existing then
+		existing:Destroy()
+	end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "DemoStatusGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Parent = playerGui
+
+	local label = Instance.new("TextLabel")
+	label.Name = "DemoStatusLabel"
+	label.Size = UDim2.new(0, 420, 0, 56)
+	label.Position = UDim2.new(0, 24, 0, 24)
+	label.BackgroundColor3 = Color3.fromRGB(10, 20, 30)
+	label.BackgroundTransparency = 0.15
+	label.BorderSizePixel = 0
+	label.Text = "DEMO SPECTATOR CAMERA ACTIVE"
+	label.TextColor3 = Color3.fromRGB(255, 230, 120)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = screenGui
+end
 
 local function getPathCenter()
 	local gameRuntime = Workspace:FindFirstChild("GameRuntime")
@@ -34,7 +72,7 @@ local function resolveLookAt()
 	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
 	local demoCameraTarget = demoRoot and demoRoot:FindFirstChild("DemoCameraTarget")
 	if demoCameraTarget and demoCameraTarget:IsA("BasePart") then
-		print("[Client] Demo camera target found")
+		warn("[Client] Demo camera target found")
 		return demoCameraTarget.Position
 	end
 
@@ -43,12 +81,12 @@ local function resolveLookAt()
 		return pathCenter
 	end
 
-	print("[Client] Demo camera fallback lookAt used")
+	warn("[Client] Demo camera fallback lookAt used")
 	return Vector3.new(0, 35, 0)
 end
 
 local function setupDemoCamera()
-	print("[Client] Demo spectator camera starting")
+	warn("[Client] Demo spectator camera starting")
 
 	local camera = Workspace.CurrentCamera
 	local cameraPosition = Vector3.new(-100, 110, -100)
@@ -60,7 +98,8 @@ local function setupDemoCamera()
 		task.wait(0.5)
 	end
 
-	print("[Client] Demo spectator camera activated")
+	createDemoStatusGui()
+	warn("[Client] Demo spectator camera activated")
 end
 
 task.spawn(setupDemoCamera)

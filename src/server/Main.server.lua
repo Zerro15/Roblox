@@ -13,9 +13,12 @@ local EnemyService = require(services:WaitForChild("EnemyService"))
 local TowerService = require(services:WaitForChild("TowerService"))
 local WaveService = require(services:WaitForChild("WaveService"))
 local PlayerSpawnService = require(services:WaitForChild("PlayerSpawnService"))
+local DemoDiagnosticsService = require(services:WaitForChild("DemoDiagnosticsService"))
 
 print(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
 print("[Main] Demo spectator bootstrap starting")
+warn(string.format("[Server boot] %s v%s", GameConfig.GameName, GameConfig.Version))
+warn("[Main] Demo spectator bootstrap starting")
 
 local function runStep(name, callback)
 	print("[Main] Starting " .. name)
@@ -31,10 +34,19 @@ runStep("RuntimeService:Init", function()
 	RuntimeService:Init()
 end)
 
+runStep("DemoDiagnosticsService:Init", function()
+	DemoDiagnosticsService:Init()
+end)
+
+DemoDiagnosticsService:Mark("ServerBootBeacon")
+warn("[Main] Demo runtime server boot confirmed")
+
 runStep("PlayerSpawnService:Init", function()
 	PlayerSpawnService:Init()
 end)
 print("[Main] Demo spectator spawn ready")
+DemoDiagnosticsService:Mark("PlayerSpawnBeacon")
+warn("[Main] Demo spectator spawn ready")
 
 runStep("MapService:Init", function()
 	MapService:Init()
@@ -64,6 +76,8 @@ runStep("MapService:BuildBacklundFogDistrict", function()
 	MapService:BuildBacklundFogDistrict()
 end)
 print("[Main] Demo map build requested")
+DemoDiagnosticsService:Mark("MapBuildBeacon")
+warn("[Main] Demo map build requested")
 
 local pathPoints
 runStep("PathService:BuildBacklundPath", function()
@@ -91,4 +105,6 @@ runStep("WaveService:StartWaveLoop", function()
 	print("[Main] Triggered wave loop")
 end)
 print("[Main] Demo wave loop requested")
+DemoDiagnosticsService:Mark("WaveLoopBeacon")
+warn("[Main] Demo wave loop requested")
 

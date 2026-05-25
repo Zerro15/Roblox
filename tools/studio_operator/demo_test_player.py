@@ -306,6 +306,13 @@ def write_demo_report(report: dict[str, Any], state: dict[str, Any]) -> Path:
 		f"- project markers count: `{report.get('project_markers_count', 0)}`",
 		f"- possible next fix: `{report.get('possible_next_fix', '')}`",
 		"",
+		"## Expected Visual Runtime Beacons",
+		"- Blue `ServerBootBeacon` near `Workspace/DemoDiagnostics`",
+		"- Green `PlayerSpawnBeacon` near `Workspace/DemoDiagnostics`",
+		"- Yellow `MapBuildBeacon` near `Workspace/DemoDiagnostics`",
+		"- Red `WaveLoopBeacon` near `Workspace/DemoDiagnostics`",
+		"- UI text: `DEMO SPECTATOR CAMERA ACTIVE`",
+		"",
 		"## Required Files",
 	]
 
@@ -441,11 +448,15 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 	matched = report.get("matched_markers", [])
 	project_markers_count = int(report.get("project_markers_count", 0))
 	if report.get("f5_pressed") and project_markers_count == 0:
-		if matched and all(marker.lower() in ("warn", "error") for marker in matched):
-			return "ONLY_WARN_ERROR_MARKERS"
-		return "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED"
+		return "RUNTIME_MARKERS_NOT_CAPTURED"
 
-	if "[Server boot]" not in matched:
+	if 0 < project_markers_count < 3:
+		return "PARTIAL_RUNTIME_CONFIRMED"
+
+	if "[DemoDiagnostics] WaveLoopBeacon marked" not in matched and project_markers_count >= 3:
+		return "PARTIAL_RUNTIME_CONFIRMED"
+
+	if "[Server boot]" not in matched and "[DemoDiagnostics] ServerBootBeacon marked" not in matched:
 		return "SERVER_BOOT_NOT_FOUND"
 	if "[Client boot]" not in matched:
 		return "CLIENT_BOOT_NOT_FOUND"
@@ -464,15 +475,12 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 def evaluate_success_criteria(report: dict[str, Any]) -> bool:
 	matched = report.get("matched_markers", [])
 	required_markers = [
-		"[Server boot]",
-		"[Main] Demo spectator bootstrap starting",
-		"[Main] Demo spectator spawn ready",
-		"[PlayerSpawnService] Demo spectator mode enabled",
+		"[DemoDiagnostics] Init",
+		"[DemoDiagnostics] ServerBootBeacon marked",
+		"[DemoDiagnostics] PlayerSpawnBeacon marked",
+		"[DemoDiagnostics] MapBuildBeacon marked",
+		"[DemoDiagnostics] WaveLoopBeacon marked",
 		"[Client] Demo spectator camera activated",
-		"[Main] Demo map build requested",
-		"[WaveService]",
-		"[TowerService]",
-		"[EnemyService]",
 	]
 	marker_hits = sum(1 for marker in required_markers if marker in matched)
 	return (
@@ -494,6 +502,8 @@ def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
 		"WRONG_STUDIO_WINDOW": "Close AutoRecovery/Installer windows so build/game.rbxlx is selected.",
 		"ONLY_WARN_ERROR_MARKERS": "Inspect expanded roblox_latest_markers.md checked files; Play may not have started runtime or logs may be elsewhere.",
 		"PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "Open Studio Output and check whether server/client scripts ran after F5.",
+		"RUNTIME_MARKERS_NOT_CAPTURED": "F5/video succeeded, but no warn-based runtime markers were captured. Check Studio Output and whether Play actually entered runtime.",
+		"PARTIAL_RUNTIME_CONFIRMED": "Some runtime markers were captured; inspect missing DemoDiagnostics beacon markers.",
 		"SERVER_BOOT_NOT_FOUND": "Verify Main.server.lua is mapped into ServerScriptService and prints [Server boot].",
 		"CLIENT_BOOT_NOT_FOUND": "Verify Main.client.lua is mapped into StarterPlayerScripts and prints [Client boot].",
 		"DEMO_CAMERA_NOT_FOUND": "Verify demo spectator camera script runs and can access Workspace.CurrentCamera.",
@@ -738,13 +748,29 @@ def main() -> int:
 		"[EnemyService]",
 	]
 
+	diagnostic_beacon_markers = [
+		"[DemoDiagnostics] Init",
+		"[DemoDiagnostics] ServerBootBeacon marked",
+		"[DemoDiagnostics] PlayerSpawnBeacon marked",
+		"[DemoDiagnostics] MapBuildBeacon marked",
+		"[DemoDiagnostics] WaveLoopBeacon marked",
+		"[Client] Demo spectator camera activated",
+	]
+
 	matched = report.get("matched_markers", [])
 
 	if report.get("result_status") == "DEMO_RECORDED":
 		spectator_hits = sum(1 for marker in spectator_markers if marker in matched)
 		gameplay_hits = sum(1 for marker in gameplay_loop_markers if marker in matched)
+		diagnostic_hits = sum(1 for marker in diagnostic_beacon_markers if marker in matched)
 
-		if spectator_hits >= 3 and gameplay_hits > 0:
+		if diagnostic_hits >= 5:
+			report["play_status"] = "DEMO_RECORDED_RUNTIME_DIAGNOSTICS_CONFIRMED"
+			report["video_score"] = 4
+		elif diagnostic_hits >= 3:
+			report["play_status"] = "DEMO_RECORDED_RUNTIME_PARTIAL_CONFIRMED"
+			report["video_score"] = 3
+		elif spectator_hits >= 3 and gameplay_hits > 0:
 			report["play_status"] = "DEMO_RECORDED_SPECTATOR_GAMEPLAY_CONFIRMED"
 			report["video_score"] = 4
 		elif spectator_hits >= 3:

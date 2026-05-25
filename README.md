@@ -662,6 +662,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1 -Diagno
 - `logs/demo_test_report.md`
 - `logs/roblox_latest_markers.md`
 
+Demo runtime также создаёт видимые diagnostic beacons в `Workspace/DemoDiagnostics`: blue server, green spawn, yellow map, red wave. На клиенте появляется UI-текст `DEMO SPECTATOR CAMERA ACTIVE`, чтобы видео можно было оценить даже если Roblox log-файл не поймал обычные `print()` строки.
+
 Политика безопасности описана в [DEMO_AUTOFIX_POLICY.md](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/docs/team/DEMO_AUTOFIX_POLICY.md). Loop не мержит PR, не удаляет файлы, не делает force push и не коммитит build/logs/videos.
 
 

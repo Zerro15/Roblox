@@ -50,7 +50,21 @@ Score `4/5` or higher is considered a strong demo.
 - `VIDEO_TOO_SMALL`
 - `ONLY_WARN_ERROR_MARKERS`
 - `PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED`
+- `RUNTIME_MARKERS_NOT_CAPTURED`
+- `PARTIAL_RUNTIME_CONFIRMED`
 - `UNKNOWN_FAILURE`
+
+## Runtime Diagnostic Beacons
+
+Demo runtime validation uses visible Workspace beacons in addition to Roblox logs:
+
+- Blue `ServerBootBeacon`
+- Green `PlayerSpawnBeacon`
+- Yellow `MapBuildBeacon`
+- Red `WaveLoopBeacon`
+- UI text: `DEMO SPECTATOR CAMERA ACTIVE`
+
+The analyzer treats 3 or more runtime diagnostic markers as a partial runtime confirmation. Five or more markers is a strong demo confirmation.
 
 ## Allowed Fixes
 
