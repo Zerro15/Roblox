@@ -8,6 +8,7 @@ local services = script.Parent:WaitForChild("services")
 local RuntimeService = require(services:WaitForChild("RuntimeService"))
 local MapService = require(services:WaitForChild("MapService"))
 local PathService = require(services:WaitForChild("PathService"))
+local HubService = require(services:WaitForChild("HubService"))
 local GameStateService = require(services:WaitForChild("GameStateService"))
 local EconomyService = require(services:WaitForChild("EconomyService"))
 local EnemyService = require(services:WaitForChild("EnemyService"))
@@ -52,6 +53,10 @@ end)
 print("[Main] Demo spectator spawn ready")
 DemoDiagnosticsService:Mark("PlayerSpawnBeacon")
 warn("[Main] Demo spectator spawn ready")
+
+runStep("HubService:BuildHub", function()
+	HubService:BuildHub()
+end)
 
 runStep("MapService:Init", function()
 	MapService:Init()
@@ -105,9 +110,30 @@ runStep("TowerService:PlaceTower", function()
 	end
 end)
 
-runStep("TowerService:StartAllTowersCombat", function()
-	TowerService:StartAllTowersCombat()
-end)
+local defenseStarted = false
+
+local function startDefense(sourceName)
+	if defenseStarted then
+		warn("[Main] Defense start ignored; already running")
+		return false
+	end
+
+	defenseStarted = true
+	HubService:StartDefense(sourceName)
+
+	runStep("TowerService:StartAllTowersCombat", function()
+		TowerService:StartAllTowersCombat()
+	end)
+
+	runStep("WaveService:StartWaveLoop", function()
+		WaveService:StartWaveLoop(3)
+		print("[Main] Triggered wave loop")
+	end)
+	print("[Main] Demo wave loop requested")
+	DemoDiagnosticsService:Mark("WaveLoopBeacon")
+	warn("[Main] Demo wave loop requested")
+	return true
+end
 
 local placeTowerRequest = RuntimeService:GetRemoteEvent("PlaceTowerRequest")
 placeTowerRequest.OnServerEvent:Connect(function(player, towerType, padName)
@@ -150,11 +176,17 @@ towerSelectedNotify.OnServerEvent:Connect(function(player, towerRuntimeId)
 	warn(string.format("[Playable] Tower selected: %s", tostring(towerRuntimeId)))
 end)
 
-runStep("WaveService:StartWaveLoop", function()
-	WaveService:StartWaveLoop(3)
-	print("[Main] Triggered wave loop")
+local startDefenseRequest = RuntimeService:GetRemoteEvent("StartDefenseRequest")
+startDefenseRequest.OnServerEvent:Connect(function(player)
+	print(string.format("[Hub] Start defense clicked: %s", player.Name))
+	warn("[Hub] Start defense clicked")
+	startDefense(player.Name)
 end)
-print("[Main] Demo wave loop requested")
-DemoDiagnosticsService:Mark("WaveLoopBeacon")
-warn("[Main] Demo wave loop requested")
+
+task.delay(8, function()
+	if not defenseStarted then
+		warn("[Main] Auto-starting defense after lobby showcase timeout")
+		startDefense("auto-start fallback")
+	end
+end)
 

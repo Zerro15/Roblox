@@ -500,12 +500,28 @@ def diagnose_demo_report(report: dict[str, Any]) -> str:
 	project_markers_count = int(report.get("project_markers_count", 0))
 	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
 	diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in matched)
-	client_camera_confirmed = "[Client] Demo spectator camera activated" in matched
+	client_camera_confirmed = "[Client] Demo spectator camera activated" in matched or "[Playable] Camera ready" in matched
+	hub_flow_required = [
+		"[Hub] Hub ready",
+		"[Hub] Portal ready",
+		"[Hub] Defense started",
+		"[Playable] Game started",
+		"[Playable] Camera ready",
+		"[Playable] UI ready",
+		"[Playable] Wave started",
+		"[Playable] Enemy spawned",
+		"[Playable] Tower attack fired",
+		"[Playable] Enemy damaged",
+	]
+	hub_playable_confirmed = all(marker in matched for marker in hub_flow_required)
 	if report.get("f5_pressed") and project_markers_count == 0:
 		return "RUNTIME_MARKERS_NOT_CAPTURED"
 
 	if 0 < project_markers_count < 3:
 		return "PARTIAL_RUNTIME_CONFIRMED"
+
+	if hub_playable_confirmed and client_camera_confirmed:
+		return "OK"
 
 	if project_markers_count >= 3 and (not gameplay_confirmed or not diagnostics_confirmed or not client_camera_confirmed):
 		return "PARTIAL_RUNTIME_CONFIRMED"
@@ -540,14 +556,27 @@ def evaluate_success_criteria(report: dict[str, Any]) -> bool:
 		"[DemoDiagnostics] WaveLoopBeacon marked",
 		"[Client] Demo spectator camera activated",
 	]
+	hub_flow_required = [
+		"[Hub] Hub ready",
+		"[Hub] Portal ready",
+		"[Hub] Defense started",
+		"[Playable] Game started",
+		"[Playable] Camera ready",
+		"[Playable] UI ready",
+		"[Playable] Wave started",
+		"[Playable] Enemy spawned",
+		"[Playable] Tower attack fired",
+		"[Playable] Enemy damaged",
+	]
 	marker_hits = sum(1 for marker in required_markers if marker in matched)
+	hub_playable_confirmed = all(marker in matched for marker in hub_flow_required)
 	gameplay_confirmed = any(marker in matched for marker in ("[WaveService]", "[TowerService]", "[EnemyService]"))
 	return (
 		report.get("build_status") == "ok"
 		and bool(report.get("recording_path"))
 		and report.get("f5_pressed") is True
 		and "F5_PRESSED" in str(report.get("auto_play_status", ""))
-		and marker_hits >= 3
+		and (marker_hits >= 3 or hub_playable_confirmed)
 		and gameplay_confirmed
 		and int(report.get("video_score", 0)) >= 3
 	)
@@ -565,7 +594,7 @@ def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
 		"ONLY_WARN_ERROR_MARKERS": "Inspect expanded roblox_latest_markers.md checked files; Play may not have started runtime or logs may be elsewhere.",
 		"PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "Open Studio Output and check whether server/client scripts ran after F5.",
 		"RUNTIME_MARKERS_NOT_CAPTURED": "F5/video succeeded, but server markers are not currently observed in the automated Studio run. Check Studio Output for [Server boot] and DemoDiagnostics markers.",
-		"PARTIAL_RUNTIME_CONFIRMED": "Some runtime markers were captured; inspect missing DemoDiagnostics beacon markers.",
+		"PARTIAL_RUNTIME_CONFIRMED": "Some runtime markers were captured, but hub/playable confirmation is incomplete.",
 		"SERVER_BOOT_NOT_FOUND": "Verify Main.server.lua is mapped into ServerScriptService and prints [Server boot].",
 		"CLIENT_BOOT_NOT_FOUND": "Verify Main.client.lua is mapped into StarterPlayerScripts and prints [Client boot].",
 		"DEMO_CAMERA_NOT_FOUND": "Verify demo spectator camera script runs and can access Workspace.CurrentCamera.",

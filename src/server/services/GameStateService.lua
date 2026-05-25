@@ -70,7 +70,7 @@ function GameStateService:Init()
 	self:SetEnemiesAlive(0)
 	self:SetAttribute("BaseHealth", self.baseHealth)
 	self:SetAttribute("MaxBaseHealth", self.baseHealth)
-	self:SetState("Ready")
+	self:SetState("Lobby")
 	print("[Playable] Game started")
 	warn("[Playable] Game started")
 end

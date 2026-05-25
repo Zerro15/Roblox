@@ -56,9 +56,26 @@ GAMEPLAY_MARKERS = [
     "[DemoGameplay] Tower attack fired",
     "[DemoGameplay] Enemy damaged",
     "[DemoGameplay] Wave completed",
+    "[Hub] Hub ready",
+    "[Hub] Portal ready",
+    "[Hub] Start defense clicked",
+    "[Hub] Defense started",
     "[WaveService]",
     "[TowerService]",
     "[EnemyService]",
+]
+
+HUB_FLOW_REQUIRED_MARKERS = [
+    "[Hub] Hub ready",
+    "[Hub] Portal ready",
+    "[Hub] Defense started",
+    "[Playable] Game started",
+    "[Playable] Camera ready",
+    "[Playable] UI ready",
+    "[Playable] Wave started",
+    "[Playable] Enemy spawned",
+    "[Playable] Tower attack fired",
+    "[Playable] Enemy damaged",
 ]
 
 DIAGNOSES = [
@@ -270,11 +287,17 @@ def classify_failure(
         return "RUNTIME_MARKERS_NOT_CAPTURED"
     gameplay_confirmed = any(marker in project_markers for marker in GAMEPLAY_MARKERS)
     diagnostics_confirmed = any(marker.startswith("[DemoDiagnostics]") for marker in project_markers)
-    client_camera_confirmed = "[Client] Demo spectator camera activated" in project_markers
+    client_camera_confirmed = (
+        "[Client] Demo spectator camera activated" in project_markers
+        or "[Playable] Camera ready" in project_markers
+    )
+    hub_playable_confirmed = all(marker in project_markers for marker in HUB_FLOW_REQUIRED_MARKERS)
     if project_marker_count < 3:
         return "PARTIAL_RUNTIME_CONFIRMED"
     if not gameplay_confirmed:
         return "PARTIAL_RUNTIME_CONFIRMED"
+    if hub_playable_confirmed and client_camera_confirmed:
+        return "OK"
     if not diagnostics_confirmed or not client_camera_confirmed:
         return "PARTIAL_RUNTIME_CONFIRMED"
     if "[Server boot]" in project_markers or "[DemoDiagnostics] ServerBootBeacon marked" in project_markers:
@@ -304,12 +327,13 @@ def success_criteria(
 ) -> bool:
     marker_hits = sum(1 for marker in SUCCESS_MARKERS if marker in matched_markers)
     gameplay_confirmed = any(marker in matched_markers for marker in GAMEPLAY_MARKERS)
+    hub_playable_confirmed = all(marker in matched_markers for marker in HUB_FLOW_REQUIRED_MARKERS)
     return (
         build_status == "ok"
         and recording is not None
         and f5_pressed
         and "F5_PRESSED" in auto_play_status
-        and marker_hits >= 3
+        and (marker_hits >= 3 or hub_playable_confirmed)
         and gameplay_confirmed
         and score >= 3
     )
@@ -323,7 +347,7 @@ def safe_fix_strategy(diagnosis_name: str, attempt: int) -> dict[str, Any]:
         "ONLY_WARN_ERROR_MARKERS": "No gameplay edit applied. Expanded Roblox log aggregation is active; next step is to inspect checked log files and Studio Output.",
         "PLAY_LOGS_NOT_CAPTURED_OR_RUNTIME_FAILED": "No gameplay edit applied. Runtime may not have started or logs may be in another file.",
         "RUNTIME_MARKERS_NOT_CAPTURED": "No gameplay edit applied. F5/video succeeded, but server markers are not currently observed in the automated Studio run.",
-        "PARTIAL_RUNTIME_CONFIRMED": "No gameplay edit applied. Some runtime markers were found; inspect which beacon is missing.",
+        "PARTIAL_RUNTIME_CONFIRMED": "No gameplay edit applied. Some runtime markers were found, but hub/playable confirmation is incomplete.",
         "SERVER_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.server.lua mapping and [Server boot] print manually.",
         "CLIENT_BOOT_NOT_FOUND": "No automatic gameplay edit applied. Verify Main.client.lua mapping and [Client boot] print manually.",
         "DEMO_CAMERA_NOT_FOUND": "No automatic gameplay edit applied. Verify Scriptable camera execution in Studio Output.",

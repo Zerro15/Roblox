@@ -11,6 +11,7 @@ local RUNTIME_CHILDREN = {
 	"Towers",
 	"Projectiles",
 	"Map",
+	"Hub",
 	"Debug",
 }
 
@@ -74,6 +75,7 @@ function RuntimeService:Init()
 	self:GetRemoteEvent("PlaceTowerRequest")
 	self:GetRemoteEvent("SellTowerRequest")
 	self:GetRemoteEvent("TowerSelectedNotify")
+	self:GetRemoteEvent("StartDefenseRequest")
 	print(string.format("[RuntimeService] Ready at Workspace/%s", runtimeFolder.Name))
 end
 
