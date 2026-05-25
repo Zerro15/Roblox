@@ -548,6 +548,133 @@ powershell -ExecutionPolicy Bypass -File .\scripts\auto_play_assisted.ps1
 
 Так у нас есть и нормальная кодовая база, и быстрый live-канал управления игрой.
 
+## Demo Player Spawn
+
+Добавлен безопасный спавн для игрока при демо-записях и тестировании.
+
+### Как это работает
+
+- [src/server/services/PlayerSpawnService.lua](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/src/server/services/PlayerSpawnService.lua)
+  создает `Workspace/GameRuntime/PlayerSpawn` с:
+  - `DemoSpawnPlatform` — видимая платформа (40x2x40) на Y=8
+  - `DemoSpawnLocation` — Roblox SpawnLocation (12x1x12) на Y=11
+  - `DemoSafetyFloor` — невидимый пол (300x2x300) на Y=-10 для защиты от падения в пустоту
+- игрок спавнится на `DemoSpawnLocation` вместо падения в void
+- при Play Mode в Studio персонаж остается на платформе и видна карта, враги, башни
+
+### Где смотреть в Studio
+
+- `Workspace/GameRuntime/PlayerSpawn/DemoSpawnPlatform`
+- `Workspace/GameRuntime/PlayerSpawn/DemoSpawnLocation`
+- `Workspace/GameRuntime/PlayerSpawn/DemoSafetyFloor`
+
+### Какие логи ожидать в Output
+
+- `[PlayerSpawnService] Demo spawn ready`
+- `[Client] Demo camera activated`
+
+## Demo Recording with Auto-Play
+
+Добавлена безопасная автоматизация нажатия F5 для запуска Play Mode во время демо-записей.
+
+### Как это работает
+
+- [tools/studio_operator/demo_test_player.py](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/tools/studio_operator/demo_test_player.py)
+  получает параметры `--auto-play` и `--auto-play-mode`
+- два режима auto-play:
+  - **safe** (по умолчанию): скрипт сам фокусирует Studio окно и нажимает F5
+  - **assisted**: пользователь кликает Studio, скрипт проверяет фокус и нажимает F5
+- в обоих режимах:
+  1. проверяется, что активное окно действительно Roblox Studio
+  2. если фокус подтвержден — нажимается F5 и ждется 4 секунды перед записью
+  3. если фокус не подтвержден — пропускается F5 и продолжается запись (без ошибок)
+- в report добавляются поля:
+  - `auto_play_enabled`: true/false
+  - `auto_play_mode`: safe/assisted
+  - `auto_play_status`: AUTO_PLAY_F5_PRESSED / AUTO_PLAY_ASSISTED_F5_PRESSED / AUTO_PLAY_FOCUS_NOT_CONFIRMED / AUTO_PLAY_ASSISTED_FOCUS_NOT_CONFIRMED / AUTO_PLAY_DISABLED
+  - `active_window_before_auto_play`
+  - `active_window_after_auto_play`
+
+### Быстрый старт с auto-play
+
+**Assisted режим (рекомендуется для Windows):**
+```powershell
+# 30 секунд с assisted auto-play
+.\scripts\run_demo_assisted_auto_play_30s.ps1
+
+# Или с параметром
+.\scripts\run_demo_record_30s.ps1 -AutoPlay -Assisted
+```
+
+**Safe режим (автоматический фокус):**
+```powershell
+# 30 секунд с safe auto-play
+.\scripts\run_demo_auto_play_30s.ps1
+
+# Или с параметром
+.\scripts\run_demo_record_30s.ps1 -AutoPlay
+
+# 90 секунд с safe auto-play
+.\scripts\run_demo_test.ps1 -AutoPlay
+```
+
+### Старый режим (ручной)
+
+```powershell
+# 30 секунд без auto-play (нужно нажимать F5 вручную)
+.\scripts\run_demo_record_30s.ps1
+
+# 90 секунд без auto-play
+.\scripts\run_demo_test.ps1
+```
+
+### Когда использовать какой режим
+
+**Assisted (рекомендуется):**
+- ✅ Самый надежный на Windows
+- ✅ Пользователь контролирует момент нажатия F5
+- ✅ Не требует автоматического фокусирования
+- ✅ Лучше всего для CI/CD и автоматизации
+
+**Safe:**
+- ✅ Полностью автоматический
+- ✅ Не требует участия пользователя
+- ⚠️ Может не сработать, если Studio не видна или фокус не подтверждается
+- ❌ Менее надежен на Windows из-за особенностей фокусирования
+
+**Manual:**
+- ✅ Полный контроль пользователя
+- ✅ Для подготовки сцены перед Play
+- ❌ Требует ручного нажатия F5
+
+## Demo Autofix Loop
+
+Добавлен ограниченный автономный диагностический цикл для demo recorder. Он собирает проект, запускает assisted demo, читает `logs/demo_test_report.md`, агрегирует Roblox logs, проверяет MP4 metadata и пишет понятный отчёт без бесконечных попыток.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\demo_autofix_loop.ps1 -DiagnoseOnly
+```
+
+Отчёты:
+
+- `logs/demo_autofix_report.md`
+- `logs/demo_test_report.md`
+- `logs/roblox_latest_markers.md`
+
+Demo runtime также создаёт видимые diagnostic beacons в `Workspace/DemoDiagnostics`: blue server, green spawn, yellow map, red wave. На клиенте появляется UI-текст `DEMO SPECTATOR CAMERA ACTIVE`, чтобы видео можно было оценить даже если Roblox log-файл не поймал обычные `print()` строки.
+
+Для нестабильного Windows foreground добавлен Studio Play Controller:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\studio_force_play.ps1
+```
+
+Он выбирает именно `build\game.rbxlx - Roblox Studio`, пробует поднять окно через WinAPI и нажать F5. Если foreground заблокирован, в отчёте будет явный статус вместо тихого провала.
+
+Политика безопасности описана в [DEMO_AUTOFIX_POLICY.md](C:/Users/Bogdan/Documents/Codex/2026-05-21/new-chat/docs/team/DEMO_AUTOFIX_POLICY.md). Loop не мержит PR, не удаляет файлы, не делает force push и не коммитит build/logs/videos.
+
+
 ## Safe PR Merge Manager
 
 Добавлен безопасный менеджер merge для Pull Request.
