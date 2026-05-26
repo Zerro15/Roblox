@@ -119,6 +119,7 @@ local function startDefense(sourceName)
 	end
 
 	defenseStarted = true
+	GameStateService:SetState("Defense")
 	HubService:StartDefense(sourceName)
 
 	runStep("TowerService:StartAllTowersCombat", function()
@@ -134,6 +135,10 @@ local function startDefense(sourceName)
 	warn("[Main] Demo wave loop requested")
 	return true
 end
+
+HubService:SetStartDefenseCallback(function(player)
+	startDefense(player and player.Name or "ProximityPrompt")
+end)
 
 local placeTowerRequest = RuntimeService:GetRemoteEvent("PlaceTowerRequest")
 placeTowerRequest.OnServerEvent:Connect(function(player, towerType, padName)
