@@ -703,6 +703,40 @@ Open `build/game.rbxlx` in Roblox Studio and press Play.
 - ✅ Для подготовки сцены перед Play
 - ❌ Требует ручного нажатия F5
 
+## Ходячий хаб
+
+Добавлен authored/static hub, который хранится как Rojo-модель и виден в Studio до запуска Play:
+
+- `src/workspace/Hub.model.json` синкается в `Workspace/Hub`
+- hub можно редактировать прямо в Studio как обычные объекты Workspace
+- runtime больше не пересобирает и не перетирает authored hub, если `Workspace/Hub` уже существует
+- `HubService` только подключает `ProximityPrompt` к `PortalStartDefense`, если prompt отсутствует
+
+Не переименовывай эти обязательные объекты без обновления кода:
+
+- `Workspace/Hub`
+- `Workspace/Hub/HubSpawn`
+- `PortalStartDefense`
+- `StartDefensePrompt`
+
+Управление в хабе:
+
+- `WASD` — ходьба
+- мышь — обычная Roblox third-person камера
+- `E` — взаимодействие с порталом `Начать оборону`
+
+После старта обороны включается tactical tower-defense режим:
+
+- `ЛКМ` — выбрать площадку или башню
+- `B` — построить башню
+- `S` — продать башню
+- `R` — сбросить tactical камеру
+- `ESC` — снять выбор
+- колесо — zoom
+- стрелки или `ПКМ` drag — обзор карты
+
+Если authored hub отсутствует, `HubService` безопасно создаёт fallback runtime hub внутри `Workspace/GameRuntime/Hub`.
+
 ## Demo Autofix Loop
 
 Добавлен ограниченный автономный диагностический цикл для demo recorder. Он собирает проект, запускает assisted demo, читает `logs/demo_test_report.md`, агрегирует Roblox logs, проверяет MP4 metadata и пишет понятный отчёт без бесконечных попыток.

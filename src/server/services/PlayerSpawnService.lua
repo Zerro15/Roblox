@@ -9,7 +9,7 @@ local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
 local PlayerSpawnService = {}
 PlayerSpawnService.spawnCFrame = nil
-PlayerSpawnService.demoSpectatorMode = true
+PlayerSpawnService.demoSpectatorMode = false
 
 local function createPart(parent, name, size, position, color, transparency, material, canCollide)
 	local part = Instance.new("Part")
@@ -40,6 +40,34 @@ local function makeSpawnHelperNonObstructive(part, size, position, canCollide)
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
+end
+
+local function findDescendantByName(root, name)
+	if not root then
+		return nil
+	end
+
+	if root.Name == name then
+		return root
+	end
+
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant.Name == name then
+			return descendant
+		end
+	end
+
+	return nil
+end
+
+local function getHubSpawnCFrame()
+	local hub = Workspace:FindFirstChild("Hub")
+	local hubSpawn = findDescendantByName(hub, "HubSpawn")
+	if hubSpawn and hubSpawn:IsA("BasePart") then
+		return CFrame.new(hubSpawn.Position + Vector3.new(0, 4, 0))
+	end
+
+	return CFrame.new(Vector3.new(155, 5, -29))
 end
 
 function PlayerSpawnService:MoveCharacterToSpawn(character)
@@ -81,7 +109,7 @@ function PlayerSpawnService:MoveCharacterToSpawn(character)
 		forceField.Parent = character
 	end
 
-	print("[PlayerSpawnService] Character locked to demo spawn")
+	print("[PlayerSpawnService] Character moved to hub spawn")
 end
 
 function PlayerSpawnService:HideCharacter(character)
@@ -139,9 +167,9 @@ function PlayerSpawnService:SetupPlayer(player)
 
 				if hrp then
 					local y = hrp.Position.Y
-					if y < 10 or y > 200 then
+					if y < -80 or y > 260 then
 						self:MoveCharacterToSpawn(character)
-						warn("[PlayerSpawnService] Character unsafe position; reset to demo spawn")
+						warn("[PlayerSpawnService] Character unsafe position; reset to hub spawn")
 					end
 				end
 
@@ -181,6 +209,7 @@ end
 
 function PlayerSpawnService:Init()
 	print("[PlayerSpawnService] Playable player spawn initializing")
+	Players.CharacterAutoLoads = true
 
 	local demoRoot = Workspace:FindFirstChild("DemoPlayerSpawnRoot")
 	if not demoRoot then
@@ -272,7 +301,23 @@ function PlayerSpawnService:Init()
 	end
 	makeSpawnHelperNonObstructive(demoDebugPole, Vector3.new(1, 1, 1), Vector3.new(0, -406, 0), false)
 
-	self.spawnCFrame = CFrame.new(Vector3.new(0, -410, 0))
+	self.spawnCFrame = getHubSpawnCFrame()
+
+	local hubSpawnLocation = demoRoot:FindFirstChild("HubSpawnLocation")
+	if not hubSpawnLocation then
+		hubSpawnLocation = Instance.new("SpawnLocation")
+		hubSpawnLocation.Name = "HubSpawnLocation"
+		hubSpawnLocation.Shape = Enum.PartType.Block
+		hubSpawnLocation.Anchored = true
+		hubSpawnLocation.TopSurface = Enum.SurfaceType.Smooth
+		hubSpawnLocation.BottomSurface = Enum.SurfaceType.Smooth
+		hubSpawnLocation.Neutral = true
+		hubSpawnLocation.AllowTeamChangeOnTouch = false
+		hubSpawnLocation.Duration = 0
+		hubSpawnLocation.Parent = demoRoot
+	end
+	makeSpawnHelperNonObstructive(hubSpawnLocation, Vector3.new(4, 0.4, 4), self.spawnCFrame.Position - Vector3.new(0, 3.5, 0), false)
+	hubSpawnLocation.Enabled = true
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		self:SetupPlayer(player)
@@ -282,7 +327,7 @@ function PlayerSpawnService:Init()
 		self:SetupPlayer(player)
 	end)
 
-	print("[PlayerSpawnService] Demo spawn ready")
+	print("[PlayerSpawnService] Hub walking spawn ready")
 end
 
 return PlayerSpawnService

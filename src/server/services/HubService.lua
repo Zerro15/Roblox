@@ -1,12 +1,21 @@
 local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 
 local RuntimeService = require(script.Parent:WaitForChild("RuntimeService"))
 
 local HubService = {
 	isBuilt = false,
 	isHidden = false,
+	isAuthored = false,
+	startDefenseCallback = nil,
+	promptConnected = false,
 	center = Vector3.new(155, 2, -92),
 }
+
+local function emitHubMarker(message)
+	print("[Hub] " .. message)
+	warn("[Hub] " .. message)
+end
 
 local function clearChildren(instance)
 	for _, child in ipairs(instance:GetChildren()) do
@@ -68,6 +77,34 @@ local function addBillboardLabel(parent, text, offset, color)
 	label.Font = Enum.Font.GothamBold
 	label.Parent = gui
 	return gui
+end
+
+local function findDescendantByName(root, name)
+	if not root then
+		return nil
+	end
+
+	if root.Name == name then
+		return root
+	end
+
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant.Name == name then
+			return descendant
+		end
+	end
+
+	return nil
+end
+
+local function applyHubAtmosphere()
+	Lighting.FogColor = Color3.fromRGB(32, 38, 48)
+	Lighting.FogStart = 4
+	Lighting.FogEnd = 175
+	Lighting.Ambient = Color3.fromRGB(36, 35, 46)
+	Lighting.OutdoorAmbient = Color3.fromRGB(28, 27, 36)
+	Lighting.Brightness = 1.2
+	Lighting.ClockTime = 22
 end
 
 local function createRing(parent, name, center, radius, height, color, material, transparency)
@@ -269,18 +306,98 @@ function HubService:GetHubFolder()
 	return RuntimeService:GetContainer("Hub")
 end
 
+function HubService:GetAuthoredHubFolder()
+	local hub = Workspace:FindFirstChild("Hub")
+	if hub and hub:IsA("Folder") then
+		return hub
+	end
+
+	return nil
+end
+
+function HubService:GetHubSpawnCFrame()
+	local authoredHub = self:GetAuthoredHubFolder()
+	local spawnPart = findDescendantByName(authoredHub, "HubSpawn")
+	if spawnPart and spawnPart:IsA("BasePart") then
+		return CFrame.new(spawnPart.Position + Vector3.new(0, 4, 0))
+	end
+
+	return CFrame.new(self.center + Vector3.new(0, 6, 62))
+end
+
+function HubService:SetStartDefenseCallback(callback)
+	self.startDefenseCallback = callback
+end
+
+function HubService:EnsureStartDefensePrompt(hubFolder)
+	local promptPart = findDescendantByName(hubFolder, "PortalStartDefense")
+	if not promptPart or not promptPart:IsA("BasePart") then
+		promptPart = findDescendantByName(hubFolder, "PortalSurface")
+	end
+
+	if not promptPart or not promptPart:IsA("BasePart") then
+		warn("[Hub] Start defense prompt anchor missing")
+		return nil
+	end
+
+	local prompt = promptPart:FindFirstChild("StartDefensePrompt")
+	if not prompt or not prompt:IsA("ProximityPrompt") then
+		if prompt then
+			prompt:Destroy()
+		end
+
+		prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "StartDefensePrompt"
+		prompt.Parent = promptPart
+	end
+
+	prompt.ActionText = "Начать оборону"
+	prompt.ObjectText = "Врата обороны"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = 0.15
+	prompt.MaxActivationDistance = 16
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = true
+
+	if not self.promptConnected then
+		self.promptConnected = true
+		prompt.Triggered:Connect(function(player)
+			emitHubMarker("Start defense clicked")
+			if self.startDefenseCallback then
+				self.startDefenseCallback(player)
+			else
+				warn("[Hub] Start defense callback is not registered")
+			end
+		end)
+	end
+
+	emitHubMarker("Start defense prompt ready")
+	return prompt
+end
+
 function HubService:BuildHub()
+	local authoredHub = self:GetAuthoredHubFolder()
+	if authoredHub then
+		self.isBuilt = true
+		self.isHidden = false
+		self.isAuthored = true
+		applyHubAtmosphere()
+		self:EnsureStartDefensePrompt(authoredHub)
+		emitHubMarker("Authored hub found")
+		emitHubMarker("Walkable hub ready")
+		emitHubMarker("Defense portal ready")
+		emitHubMarker("Hub ready")
+		emitHubMarker("Portal ready")
+		return authoredHub
+	end
+
 	local hubFolder = self:GetHubFolder()
 	clearChildren(hubFolder)
 	self.isHidden = false
+	self.isAuthored = false
 
-	Lighting.FogColor = Color3.fromRGB(32, 38, 48)
-	Lighting.FogStart = 4
-	Lighting.FogEnd = 155
-	Lighting.Ambient = Color3.fromRGB(36, 35, 46)
-	Lighting.OutdoorAmbient = Color3.fromRGB(28, 27, 36)
-	Lighting.Brightness = 1.2
-	Lighting.ClockTime = 22
+	applyHubAtmosphere()
+	emitHubMarker("Generated fallback hub")
 
 	local center = self.center
 	local platform = createFolder(hubFolder, "OccultCommandPlatform")
@@ -342,8 +459,8 @@ function HubService:BuildHub()
 	end
 
 	self.isBuilt = true
-	print("[Hub] Hub ready")
-	warn("[Hub] Hub ready")
+	self:EnsureStartDefensePrompt(hubFolder)
+	emitHubMarker("Hub ready")
 	return hubFolder
 end
 

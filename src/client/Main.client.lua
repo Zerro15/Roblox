@@ -27,6 +27,7 @@ local cameraReady = false
 local cameraRenderConnected = false
 local cameraDragging = false
 local lastDragPosition = nil
+local tacticalCameraEnabled = false
 
 local DEFAULT_CAMERA_OFFSET = Vector3.new(-118, 122, -118)
 local HUB_CAMERA_FOCUS = Vector3.new(155, 10, -92)
@@ -69,6 +70,9 @@ local function applyPlayableCamera()
 	if not camera then
 		return
 	end
+	if not tacticalCameraEnabled then
+		return
+	end
 
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = CFrame.new(cameraFocus + (DEFAULT_CAMERA_OFFSET * cameraZoom), cameraFocus)
@@ -76,13 +80,23 @@ end
 
 local function resetPlayableCamera()
 	local runtime = Workspace:FindFirstChild(GameConfig.RuntimeFolderName)
-	if runtime and runtime:GetAttribute("GameState") == "Lobby" then
-		cameraFocus = HUB_CAMERA_FOCUS
-		cameraZoom = HUB_CAMERA_ZOOM
-	else
-		cameraFocus = getPathCenter() + Vector3.new(0, 5, 0)
-		cameraZoom = 1
+	local isLobby = runtime and runtime:GetAttribute("GameState") == "Lobby"
+	local camera = Workspace.CurrentCamera
+
+	if isLobby then
+		tacticalCameraEnabled = false
+		cameraReady = false
+		cameraDragging = false
+		if camera then
+			camera.CameraType = Enum.CameraType.Custom
+			camera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") or camera.CameraSubject
+		end
+		return
 	end
+
+	tacticalCameraEnabled = true
+	cameraFocus = getPathCenter() + Vector3.new(0, 5, 0)
+	cameraZoom = 1
 	cameraReady = true
 	applyPlayableCamera()
 end
@@ -106,6 +120,10 @@ local function setupPlayableCamera()
 		cameraRenderConnected = true
 		RunService.RenderStepped:Connect(function(deltaTime)
 			if not cameraReady then
+				return
+			end
+			local runtime = Workspace:FindFirstChild(GameConfig.RuntimeFolderName)
+			if runtime and runtime:GetAttribute("GameState") == "Lobby" then
 				return
 			end
 
@@ -254,7 +272,7 @@ local function setupPlayableUi()
 	controls.TextColor3 = Color3.fromRGB(160, 245, 190)
 	controls.TextScaled = true
 	controls.Font = Enum.Font.GothamBold
-	controls.Text = "Нажми синюю площадку. B - построить, S - продать, ESC - снять выбор, R - камера, колесо - зум."
+	controls.Text = "ЛКМ - выбрать. B - построить, S - продать, ESC - снять выбор, R - камера, колесо - зум, стрелки/ПКМ-drag - обзор."
 	controls.Parent = screenGui
 
 	local lobbyPanel = Instance.new("Frame")
@@ -293,7 +311,7 @@ local function setupPlayableUi()
 	lobbyInstruction.Size = UDim2.new(1, -32, 0, 58)
 	lobbyInstruction.Position = UDim2.new(0, 16, 0, 124)
 	lobbyInstruction.BackgroundTransparency = 1
-	lobbyInstruction.Text = "После начала боя: ЛКМ — выбрать, B — построить, S — продать, R — камера, ESC — снять выбор."
+	lobbyInstruction.Text = "Хаб: WASD — ходьба, мышь — камера, E — взаимодействие с вратами. После начала боя включится tactical камера."
 	lobbyInstruction.TextColor3 = Color3.fromRGB(223, 214, 190)
 	lobbyInstruction.TextScaled = true
 	lobbyInstruction.TextWrapped = true
@@ -557,8 +575,14 @@ local function setupPlayableUi()
 		elseif input.KeyCode == Enum.KeyCode.Escape then
 			clearSelection()
 		elseif input.KeyCode == Enum.KeyCode.R then
+			if runtime:GetAttribute("GameState") == "Lobby" then
+				return
+			end
 			resetPlayableCamera()
 		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+			if runtime:GetAttribute("GameState") == "Lobby" then
+				return
+			end
 			cameraDragging = true
 			lastDragPosition = input.Position
 		end
@@ -570,6 +594,9 @@ local function setupPlayableUi()
 		end
 
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			if runtime:GetAttribute("GameState") == "Lobby" then
+				return
+			end
 			cameraZoom = math.clamp(cameraZoom - (input.Position.Z * 0.08), CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM)
 			applyPlayableCamera()
 		elseif cameraDragging and input.UserInputType == Enum.UserInputType.MouseMovement and lastDragPosition then
