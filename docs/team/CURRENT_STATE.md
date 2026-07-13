@@ -3,7 +3,7 @@
 ## Project Overview
 
 **Game:** Roblox Tower Defense Prototype
-**Theme:** Backlund Fog District (Lord of the Mysteries inspired)
+**Theme:** Greymoor Veil District (original foggy occult mystery)
 **Status:** Foundation complete, features in progress
 **Last Updated:** 2026-05-24
 
@@ -24,7 +24,7 @@
 - ✅ **EnemyService** - Spawns and manages enemies
 - ✅ **TowerService** - Manages tower placement and targeting
 - ✅ **WaveService** - Manages wave progression
-- ✅ **MapService** - Builds Backlund Fog District map
+- ✅ **MapService** - Builds Greymoor Veil District map
 - ✅ **PathService** - Creates enemy path nodes
 
 ### Game Mechanics
@@ -33,11 +33,11 @@
 - ✅ **Damage System** - Towers deal damage, enemies have health
 - ✅ **Reward Economy** - Players earn money for defeating enemies
 - ✅ **Wave Progression** - Sequential waves with intermission
-- ✅ **Map Generation** - Backlund Fog District with atmosphere
+- ✅ **Map Generation** - Greymoor Veil District with atmosphere
 
 ### Configurations
 - ✅ **EnemyConfig.lua** - Enemy types: Basic, Fast, Tank
-- ✅ **TowerConfig.lua** - Tower types: BasicTower, SniperTower, SplashTower
+- ✅ **TowerConfig.lua** - Agent types: Lantern Warden, Clockwork Gunner, Archive Savant, Veil Medium, Iron Hunter, Alchemist Surgeon
 - ✅ **WaveConfig.lua** - First 5 waves defined
 - ✅ **MapConfig.lua** - Map building parameters
 

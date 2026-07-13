@@ -67,7 +67,7 @@ If tools are missing, Codex should install or provide exact install commands, th
 
 ## Game design constraints
 
-- Keep the project legally distinct: no direct copyrighted names from `Lord of the Mysteries`.
+- Keep the project legally distinct: no protected names, characters, locations, logos, or story text from existing franchises.
 - Use original names: `Greymoor`, `Veil`, `Paths`, `Agents`, `Potions`, `Artifacts`, `Mist Breaches`.
 - Prioritize playable slices over giant world scope.
 - Preserve existing working MVP features unless explicitly replacing them.
@@ -87,6 +87,17 @@ First polished vertical slice:
 8. Currency, tower placement, upgrade, sell.
 9. Basic victory/defeat loop.
 10. Test report proving it runs in Studio.
+
+## Vertical slice playtest
+
+1. Build and open `build/game.rbxlx` in Roblox Studio.
+2. Press Play. The character spawns in the authored Greymoor command hub with the normal Roblox camera.
+3. Walk to `Врата обороны` and press `E` (or use the small lobby button) to start `Защита Завесы`.
+4. Select a glowing build pad, then choose an Agent. Building, rewards, damage, and selling are validated by the server.
+5. Defend the base through 15 mist-breach waves. `Lost Adept` appears as the final boss.
+6. The HUD shows money, wave, base health, selection details, and the final victory or defeat state.
+
+Lobby does not auto-start during a normal playtest. Tactical camera and enemy waves begin only after the portal interaction. The player character is moved to a non-interfering spectator position for the defense phase.
 
 ## AI development rule
 

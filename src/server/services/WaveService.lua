@@ -12,7 +12,7 @@ local WaveService = {
 	currentWave = 0,
 	isWaveRunning = false,
 	wavesCompleted = 0,
-	intermissionSeconds = 5,
+	intermissionSeconds = GameConfig.IntermissionSeconds or 4,
 }
 
 local function toVector3(values)
@@ -20,6 +20,11 @@ local function toVector3(values)
 end
 
 function WaveService:StartWave(waveNumber)
+	if not GameStateService:IsMatchActive() then
+		warn(string.format("[WaveService] Wave %s blocked outside Veil Defense", tostring(waveNumber)))
+		return false
+	end
+
 	if self.isWaveRunning then
 		warn(string.format("[WaveService] Cannot start wave %s while wave %s is still running", tostring(waveNumber), tostring(self.currentWave)))
 		return false
@@ -34,6 +39,7 @@ function WaveService:StartWave(waveNumber)
 	self.currentWave = waveNumber
 	self.isWaveRunning = true
 	GameStateService:SetWave(waveNumber)
+	GameStateService:SetAttribute("WaveTitle", waveNumber == (GameConfig.TotalWaves or 15) and "Lost Adept" or "Mist Breach")
 	GameStateService:SetState("WaveRunning")
 	print("[WaveService] Starting wave " .. waveNumber)
 	warn("[WaveService] Runtime marker: Starting wave " .. waveNumber)
@@ -48,6 +54,11 @@ function WaveService:StartWave(waveNumber)
 
 	for _, entry in ipairs(waveEntries) do
 		for _ = 1, entry.count do
+			if GameStateService:GetBaseHealth() <= 0 then
+				self.isWaveRunning = false
+				return false
+			end
+
 			local spawnPosition = startPosition + Vector3.new(offsetX, 1.5, 0)
 			local enemy = EnemyService:SpawnEnemy(entry.enemyType, spawnPosition)
 			if enemy then
@@ -65,7 +76,11 @@ function WaveService:StartWave(waveNumber)
 
 	print(string.format("[WaveService] Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
 	warn(string.format("[WaveService] Runtime marker: Wave %d spawned %d enemies", waveNumber, #spawnedEnemies))
-	self:WaitForWaveClear()
+	local cleared = self:WaitForWaveClear()
+	if not cleared and GameStateService:GetBaseHealth() <= 0 then
+		self.isWaveRunning = false
+		return false
+	end
 	GameStateService:SetEnemiesAlive(0)
 	self.isWaveRunning = false
 	self.wavesCompleted += 1
@@ -136,6 +151,11 @@ function WaveService:StartNextWave()
 end
 
 function WaveService:StartWaveLoop(maxWaves)
+	if not GameStateService:IsMatchActive() then
+		warn("[WaveService] Wave loop blocked outside Veil Defense")
+		return false
+	end
+
 	task.spawn(function()
 		local totalWaves = math.min(maxWaves or #WaveConfig, #WaveConfig)
 		GameStateService:SetState("Running")
@@ -164,6 +184,7 @@ function WaveService:StartWaveLoop(maxWaves)
 			warn("[Playable] Victory")
 		end
 	end)
+	return true
 end
 
 function WaveService:Init()

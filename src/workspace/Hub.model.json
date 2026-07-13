@@ -6799,7 +6799,7 @@
         {
           "className": "Part",
           "properties": {
-            "Name": "BasicTowerBody",
+            "Name": "LanternWardenBody",
             "Anchored": true,
             "CanCollide": true,
             "CanQuery": true,
@@ -6832,7 +6832,7 @@
         {
           "className": "Part",
           "properties": {
-            "Name": "BasicTowerLens",
+            "Name": "LanternWardenLens",
             "Anchored": true,
             "CanCollide": false,
             "CanQuery": true,
@@ -12159,7 +12159,7 @@
         {
           "className": "Part",
           "properties": {
-            "Name": "Sign_Прототип_башни",
+            "Name": "Sign_Агенты_Завесы",
             "Anchored": true,
             "CanCollide": true,
             "CanQuery": true,

@@ -62,7 +62,7 @@ This guide explains how to evaluate the usefulness of demo test videos recorded 
 ### Score 4: Map/Enemies/Towers Visible
 **Status:** `DEMO_RECORDED_PLAY_CONFIRMED`
 
-- Map visible (Backlund Fog District)
+- Map visible (Greymoor Veil District)
 - Enemies visible and moving
 - Towers visible
 - Gameplay partially clear
@@ -82,7 +82,7 @@ This guide explains how to evaluate the usefulness of demo test videos recorded 
 ### Score 5: Full Loop Visible
 **Status:** `DEMO_RECORDED_PLAY_CONFIRMED`
 
-- Map visible (Backlund Fog District)
+- Map visible (Greymoor Veil District)
 - Enemies spawning and moving along path
 - Towers visible and attacking
 - Rewards being awarded (money changes)

@@ -113,7 +113,7 @@ Provide a comprehensive status report:
 - ✅ Tower targeting and damage
 - ✅ Reward economy
 - ✅ Wave progression
-- ✅ Backlund Fog District map
+- ✅ Greymoor Veil District map
 - ✅ Demo recorder
 
 ### Pending Features

@@ -52,7 +52,7 @@ Initial agents:
 
 Initial paths:
 
-1. `Seer Path` — previews or weakens next wave.
+1. `Veil Reader Path` — previews or weakens next wave.
 2. `Mechanist Path` — boosts mechanical agents and deployables.
 3. `Shadow Path` — fear, slow, and ambush effects.
 
@@ -63,7 +63,7 @@ Keep path names original and legally safe.
 Initial enemies:
 
 1. `Mist Drifter` — basic fast unit.
-2. `Ragged Cultist` — basic humanoid.
+2. `Ragged Initiate` — basic humanoid.
 3. `Veil Hound` — fast pressure unit.
 4. `Armored Heretic` — high health/armor.
 5. `Lost Adept` — boss with aura or spawn effect.

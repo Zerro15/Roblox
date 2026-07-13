@@ -289,12 +289,12 @@ end
 local function createTowerPreview(parent, center)
 	local preview = createFolder(parent, "TowerPreview")
 	createPart(preview, "PreviewPedestal", Enum.PartType.Cylinder, Vector3.new(12, 1, 12), CFrame.new(center + Vector3.new(0, 0.7, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(38, 38, 45), Enum.Material.Slate, 0)
-	createPart(preview, "BasicTowerPreviewBody", Enum.PartType.Cylinder, Vector3.new(4.5, 7, 4.5), CFrame.new(center + Vector3.new(0, 4.4, 0)), Color3.fromRGB(158, 115, 52), Enum.Material.Metal, 0)
+	createPart(preview, "LanternWardenPreviewBody", Enum.PartType.Cylinder, Vector3.new(4.5, 7, 4.5), CFrame.new(center + Vector3.new(0, 4.4, 0)), Color3.fromRGB(158, 115, 52), Enum.Material.Metal, 0)
 	createPart(preview, "PreviewLens", Enum.PartType.Ball, Vector3.new(3.3, 3.3, 3.3), CFrame.new(center + Vector3.new(0, 8.3, 0)), Color3.fromRGB(65, 218, 232), Enum.Material.Neon, 0.1).CanCollide = false
 	local ring = createPart(preview, "RangeGlow", Enum.PartType.Cylinder, Vector3.new(24, 0.12, 24), CFrame.new(center + Vector3.new(0, 0.9, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(38, 170, 255), Enum.Material.Neon, 0.83)
 	ring.CanCollide = false
 	addPointLight(preview.PreviewLens, Color3.fromRGB(65, 218, 232), 1.8, 26)
-	addBillboardLabel(preview.PreviewLens, "Прототип башни", Vector3.new(0, 6, 0), Color3.fromRGB(112, 255, 236))
+	addBillboardLabel(preview.PreviewLens, "Агенты Завесы", Vector3.new(0, 6, 0), Color3.fromRGB(112, 255, 236))
 
 	local sealed = createPart(preview, "SealedPrototype", Enum.PartType.Cylinder, Vector3.new(3.2, 5.5, 3.2), CFrame.new(center + Vector3.new(18, 3.4, 0)), Color3.fromRGB(70, 56, 86), Enum.Material.Marble, 0.15)
 	createPart(preview, "SealedChain", Enum.PartType.Block, Vector3.new(7, 0.35, 0.5), CFrame.new(center + Vector3.new(18, 5.5, 0)) * CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(130, 105, 62), Enum.Material.Metal, 0)
@@ -470,7 +470,10 @@ function HubService:HideHub()
 	end
 
 	self.isHidden = true
-	local hubFolder = self:GetHubFolder()
+	local hubFolder = self.isAuthored and self:GetAuthoredHubFolder() or self:GetHubFolder()
+	if not hubFolder then
+		return
+	end
 	for _, descendant in ipairs(hubFolder:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			descendant.Transparency = math.max(descendant.Transparency, 0.88)

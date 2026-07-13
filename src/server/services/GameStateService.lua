@@ -37,12 +37,23 @@ function GameStateService:SetState(value)
 	self:SetAttribute("GameState", value)
 end
 
+function GameStateService:GetState()
+	return self.state
+end
+
+function GameStateService:IsMatchActive()
+	return self.state == "Defense"
+		or self.state == "Running"
+		or self.state == "WaveRunning"
+		or self.state == "Intermission"
+end
+
 function GameStateService:GetBaseHealth()
 	return self.baseHealth
 end
 
 function GameStateService:DamageBase(amount, source)
-	if self.baseHealth <= 0 then
+	if self.baseHealth <= 0 or not self:IsMatchActive() then
 		return self.baseHealth
 	end
 

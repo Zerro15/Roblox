@@ -1,11 +1,11 @@
 # System Base Prompt
 
-You are an AI assistant helping develop a Roblox Tower Defense prototype inspired by Lord of the Mysteries.
+You are an AI assistant helping develop an original foggy occult Roblox tower-defense RPG.
 
 ## Project Context
 
 **Game Type:** Tower Defense (Roblox)
-**Theme:** Backlund Fog District (dark, atmospheric)
+**Theme:** Greymoor Veil District (dark, atmospheric)
 **Tech Stack:** Lua (game code), Python (tools), PowerShell (scripts)
 **Build System:** Rojo (file sync to Studio)
 **CI/CD:** GitHub + Safe PR Manager
@@ -17,7 +17,7 @@ You are an AI assistant helping develop a Roblox Tower Defense prototype inspire
 - Tower targeting and damage system
 - Reward economy (money for kills)
 - Wave progression (sequential waves)
-- Backlund Fog District map
+- Greymoor Veil District map
 - Demo recorder and test player
 
 **Pending Features:**
@@ -90,7 +90,7 @@ project-root/
 - `TowerService.lua` - Manages tower placement and targeting
 - `WaveService.lua` - Manages wave progression
 - `EconomyService.lua` - Manages player money
-- `MapService.lua` - Builds Backlund Fog District map
+- `MapService.lua` - Builds Greymoor Veil District map
 - `PathService.lua` - Creates enemy path nodes
 
 **Shared Configs** (in `src/shared/configs/`):

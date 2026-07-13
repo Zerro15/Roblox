@@ -599,7 +599,7 @@ def possible_next_fix_for_diagnosis(diagnosis: str) -> str:
 		"CLIENT_BOOT_NOT_FOUND": "Verify Main.client.lua is mapped into StarterPlayerScripts and prints [Client boot].",
 		"DEMO_CAMERA_NOT_FOUND": "Verify demo spectator camera script runs and can access Workspace.CurrentCamera.",
 		"PLAYERSPAWN_NOT_FOUND": "Verify PlayerSpawnService:Init is called in Main.server.lua.",
-		"MAP_NOT_BUILT": "Verify MapService:BuildBacklundFogDistrict runs inside Main.server.lua.",
+		"MAP_NOT_BUILT": "Verify MapService:BuildGreymoorVeilDistrict runs inside Main.server.lua.",
 		"WAVE_NOT_STARTED": "Verify WaveService:StartWaveLoop runs after path/tower setup.",
 		"VIDEO_NOT_RECORDED": "Inspect screen_recorder output and disk permissions.",
 		"VIDEO_TOO_SMALL": "Rerun with 45 seconds in the autofix loop.",

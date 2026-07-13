@@ -238,14 +238,14 @@ function EnemyService:SpawnEnemy(enemyType, position)
 	local enemiesFolder = RuntimeService:GetContainer("Enemies")
 	local enemy = Instance.new("Part")
 	self.nextEnemyId += 1
-	enemy.Name = enemyType
+	enemy.Name = config.displayName
 	enemy.Size = toVector3(config.size)
 	enemy.Color = toColor3(config.color)
 	enemy.Anchored = true
 	enemy.Shape = Enum.PartType.Block
 	enemy.TopSurface = Enum.SurfaceType.Smooth
 	enemy.BottomSurface = Enum.SurfaceType.Smooth
-	enemy.Material = Enum.Material.Neon
+	enemy.Material = config.isBoss and Enum.Material.ForceField or Enum.Material.Neon
 	enemy.Position = position or Vector3.new(0, 3, 0)
 
 	enemy:SetAttribute("EnemyType", enemyType)
@@ -256,6 +256,8 @@ function EnemyService:SpawnEnemy(enemyType, position)
 	enemy:SetAttribute("IsMoving", false)
 	enemy:SetAttribute("PathIndex", 1)
 	enemy:SetAttribute("Reward", config.reward)
+	enemy:SetAttribute("BaseDamage", config.baseDamage or 1)
+	enemy:SetAttribute("IsBoss", config.isBoss == true)
 	enemy:SetAttribute("RuntimeEnemyId", string.format("Enemy_%03d", self.nextEnemyId))
 	enemy.Parent = enemiesFolder
 	createEnemyHealthBillboard(enemy)
