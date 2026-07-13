@@ -149,6 +149,15 @@ function PlayerSpawnService:HideCharacter(character)
 	print("[PlayerSpawnService] Character hidden for demo spectator mode")
 end
 
+function PlayerSpawnService:EnterDefenseSpectator()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Character then
+			self:HideCharacter(player.Character)
+			print(string.format("[PlayerSpawnService] Defense spectator ready: %s", player.Name))
+		end
+	end
+end
+
 function PlayerSpawnService:SetupPlayer(player)
 	player.CharacterAdded:Connect(function(character)
 		task.wait(0.5)
@@ -254,7 +263,7 @@ function PlayerSpawnService:Init()
 		demoSpawnLocation.Parent = demoRoot
 	end
 	makeSpawnHelperNonObstructive(demoSpawnLocation, Vector3.new(6, 1, 6), Vector3.new(0, -414, 0), false)
-	demoSpawnLocation.Enabled = true
+	demoSpawnLocation.Enabled = self.demoSpectatorMode
 
 	local demoSafetyFloor = demoRoot:FindFirstChild("DemoSafetyFloor")
 	if not demoSafetyFloor then
@@ -317,7 +326,7 @@ function PlayerSpawnService:Init()
 		hubSpawnLocation.Parent = demoRoot
 	end
 	makeSpawnHelperNonObstructive(hubSpawnLocation, Vector3.new(4, 0.4, 4), self.spawnCFrame.Position - Vector3.new(0, 3.5, 0), false)
-	hubSpawnLocation.Enabled = true
+	hubSpawnLocation.Enabled = not self.demoSpectatorMode
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		self:SetupPlayer(player)

@@ -79,7 +79,7 @@ function PathService:ClearPath()
 	self.currentPath = {}
 end
 
-function PathService:BuildBacklundPath()
+function PathService:BuildGreymoorPath()
 	self:ClearPath()
 
 	local pathFolder = self:GetPathFolder()
@@ -109,7 +109,7 @@ function PathService:BuildBacklundPath()
 	end
 
 	self.currentPath = builtPath
-	print("[PathService] Built Backlund path with 7 nodes and visible demo guide")
+	print("[PathService] Built Greymoor path with 7 nodes and visible Veil guide")
 	return builtPath
 end
 

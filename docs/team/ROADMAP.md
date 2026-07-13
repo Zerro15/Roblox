@@ -20,7 +20,7 @@ This document outlines the planned features and timeline for the Roblox Tower De
 - ✅ Tower targeting and damage
 - ✅ Reward economy
 - ✅ Wave progression
-- ✅ Backlund Fog District map
+- ✅ Greymoor Veil District map
 - ✅ Demo test player
 - ✅ Safe PR manager
 
@@ -93,7 +93,7 @@ This document outlines the planned features and timeline for the Roblox Tower De
 **Status:** ⏳ PLANNED
 
 ### Feature 1: Gacha Unit System
-**Description:** Implement unit gacha (Lord of the Mysteries theme)
+**Description:** Implement an original Greymoor Agent recruitment system
 **Effort:** 16-24 hours
 **Priority:** High
 **Dependencies:** Phase 2 complete

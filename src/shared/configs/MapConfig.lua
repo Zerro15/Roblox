@@ -1,9 +1,9 @@
 local MapConfig = {
-	BacklundFogDistrict = {
-		id = "BacklundFogDistrict",
-		displayName = "Backlund Fog District",
+	GreymoorVeilDistrict = {
+		id = "GreymoorVeilDistrict",
+		displayName = "Greymoor Veil District",
 		theme = "dark victorian fog city",
-		description = "A narrow Backlund district wrapped in damp fog, gaslight, and occult unease.",
+		description = "A narrow Greymoor district fractured by mist breaches and guarded by gaslight.",
 		mapSize = { 220, 4, 220 },
 		fogColor = { 0.58, 0.62, 0.66 },
 		ambientColor = { 0.14, 0.16, 0.2 },

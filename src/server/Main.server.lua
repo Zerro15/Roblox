@@ -75,7 +75,8 @@ runStep("EnemyService:Init", function()
 end)
 
 EnemyService:SetEnemyReachedBaseCallback(function(enemy)
-	GameStateService:DamageBase(1, enemy and enemy.Name or "UnknownEnemy")
+	local damage = enemy and enemy:GetAttribute("BaseDamage") or 1
+	GameStateService:DamageBase(damage, enemy and enemy.Name or "UnknownEnemy")
 end)
 
 runStep("TowerService:Init", function()
@@ -86,28 +87,15 @@ runStep("WaveService:Init", function()
 	WaveService:Init()
 end)
 
-runStep("MapService:BuildBacklundFogDistrict", function()
-	MapService:BuildBacklundFogDistrict()
+runStep("MapService:BuildGreymoorVeilDistrict", function()
+	MapService:BuildGreymoorVeilDistrict()
 end)
 print("[Main] Demo map build requested")
 DemoDiagnosticsService:Mark("MapBuildBeacon")
 warn("[Main] Demo map build requested")
 
-local pathPoints
-runStep("PathService:BuildBacklundPath", function()
-	pathPoints = PathService:BuildBacklundPath()
-end)
-
-local firstPathPoint = pathPoints and pathPoints[1] or Vector3.new(0, 0, 0)
-local towerPosition = firstPathPoint + Vector3.new(-14, 2.5, 20)
-
-runStep("TowerService:PlaceTower", function()
-	local testTower = TowerService:PlaceTower("BasicTower", towerPosition)
-	if testTower then
-		print(string.format("[Main] Placed test tower: %s", testTower.Name))
-	else
-		warn("[Main] Failed to place test tower")
-	end
+runStep("PathService:BuildGreymoorPath", function()
+	PathService:BuildGreymoorPath()
 end)
 
 local defenseStarted = false
@@ -121,13 +109,14 @@ local function startDefense(sourceName)
 	defenseStarted = true
 	GameStateService:SetState("Defense")
 	HubService:StartDefense(sourceName)
+	PlayerSpawnService:EnterDefenseSpectator()
 
 	runStep("TowerService:StartAllTowersCombat", function()
 		TowerService:StartAllTowersCombat()
 	end)
 
 	runStep("WaveService:StartWaveLoop", function()
-		WaveService:StartWaveLoop(3)
+		WaveService:StartWaveLoop(GameConfig.TotalWaves or 15)
 		print("[Main] Triggered wave loop")
 	end)
 	print("[Main] Demo wave loop requested")
@@ -142,7 +131,12 @@ end)
 
 local placeTowerRequest = RuntimeService:GetRemoteEvent("PlaceTowerRequest")
 placeTowerRequest.OnServerEvent:Connect(function(player, towerType, padName)
-	towerType = towerType or "BasicTower"
+	if not GameStateService:IsMatchActive() then
+		warn(string.format("[Main] Player %s tower request blocked outside Veil Defense", player.Name))
+		return
+	end
+
+	towerType = towerType or "LanternWarden"
 	local tower
 	if type(padName) == "string" and padName ~= "" then
 		tower = TowerService:PlaceTowerAtPad(towerType, padName, player)
@@ -158,6 +152,11 @@ end)
 
 local sellTowerRequest = RuntimeService:GetRemoteEvent("SellTowerRequest")
 sellTowerRequest.OnServerEvent:Connect(function(player, towerRuntimeId)
+	if not GameStateService:IsMatchActive() then
+		warn(string.format("[Main] Player %s sell request blocked outside Veil Defense", player.Name))
+		return
+	end
+
 	if not towerRuntimeId then
 		warn(string.format("[Main] Player %s sell request missing tower id", player.Name))
 		return
@@ -188,10 +187,12 @@ startDefenseRequest.OnServerEvent:Connect(function(player)
 	startDefense(player.Name)
 end)
 
-task.delay(8, function()
-	if not defenseStarted then
-		warn("[Main] Auto-starting defense after lobby showcase timeout")
-		startDefense("auto-start fallback")
-	end
-end)
+if GameConfig.AutomationAutoStartEnabled then
+	task.delay(120, function()
+		if not defenseStarted then
+			warn("[Main] Automation fallback starting Veil Defense")
+			startDefense("automation fallback")
+		end
+	end)
+end
 

@@ -130,7 +130,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_demo_test.ps1
 
 Что смотреть в видео:
 
-- карту `Backlund Fog District`
+- карту `Greymoor Veil District`
 - врагов на `PathNodes`
 - башни
 - projectiles / beams

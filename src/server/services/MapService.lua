@@ -66,7 +66,7 @@ function MapService:GetMapFolder()
 end
 
 function MapService:GetMapConfig()
-	return MapConfig.BacklundFogDistrict
+	return MapConfig.GreymoorVeilDistrict
 end
 
 function MapService:GetSection(name)
@@ -89,7 +89,7 @@ function MapService:ApplyAtmosphere(config)
 	Lighting.ClockTime = 21
 end
 
-function MapService:BuildBacklundFogDistrict()
+function MapService:BuildGreymoorVeilDistrict()
 	local config = self:GetMapConfig()
 	self:ClearMap()
 	self:ApplyAtmosphere(config)
